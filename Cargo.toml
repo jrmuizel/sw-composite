@@ -1,0 +1,6 @@
+[package]
+name = "sw-composite"
+version = "0.1.0"
+authors = ["Jeff Muizelaar <jrmuizel@gmail.com>"]
+
+[dependencies]
