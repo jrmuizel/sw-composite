@@ -23,9 +23,9 @@ fn lerp(a: u32, b: u32, t: u32) -> u32
 }
 
 
-struct GradientStop {
-    position: f32,
-    color: u32
+pub struct GradientStop {
+    pub position: f32,
+    pub color: u32
 }
 
 pub struct GradientSource {
@@ -57,7 +57,7 @@ impl GradientSource {
 }
 
 pub struct Gradient {
-    stops: Vec<GradientStop>
+    pub stops: Vec<GradientStop>
 }
 impl Gradient {
     pub fn make_source(&self, matrix: &MatrixFixedPoint) -> Box<GradientSource> {
