@@ -256,6 +256,11 @@ fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
     return (prod + (prod >> 8)) >> 8;
 }
 
+pub fn muldiv255(a: u8, b: u8) -> u8 {
+    let tmp = (a as u32) * (b as u32) + 0x128;
+    ((tmp + (tmp >> 8)) >> 8) as u8
+}
+
 pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     let src_alpha = alpha_to_alpha256(alpha);
     let dst_alpha = alpha_mul_inv256(packed_alpha(src), src_alpha);
