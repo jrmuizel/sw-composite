@@ -79,13 +79,15 @@ impl Gradient {
         let mut i = 0;
         while i <= 256 {
             while next_pos <= i {
-               stop_idx += 1;
+                stop_idx += 1;
                 last_color = next_color;
                 if stop_idx >= self.stops.len() {
-                    stop = &self.stops[self.stops.len()-1];
+                    stop = &self.stops[self.stops.len() - 1];
                     next_pos = 256;
                     next_color = stop.color;
                     break;
+                } else {
+                    stop = &self.stops[stop_idx];
                 }
                 next_pos = (256. * stop.position) as u32;
                 next_color = stop.color;
