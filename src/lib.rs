@@ -82,7 +82,7 @@ impl Gradient {
                stop_idx += 1;
                 last_color = next_color;
                 if stop_idx >= self.stops.len() {
-                    stop = &self.stops[stop_idx];
+                    stop = &self.stops[self.stops.len()-1];
                     next_pos = 256;
                     next_color = stop.color;
                     break;
