@@ -30,7 +30,7 @@ pub struct GradientStop {
 
 pub struct GradientSource {
     matrix: MatrixFixedPoint,
-    lut: [u32; 256],
+    lut: [u32; 257],
 }
 impl GradientSource {
     pub fn radial_gradient_eval(&self, x: u16, y: u16) -> u32 {
@@ -46,8 +46,8 @@ impl GradientSource {
     pub fn linear_gradient_eval(&self, x: u16, y: u16) -> u32 {
         let p = self.matrix.transform(x, y);
         let mut lx = p.x >> 16;
-        if lx > 256 {
-            lx = 265
+        if lx >= 256 {
+            lx = 256;
         }
         if lx < 0 {
             lx = 0;
@@ -61,11 +61,11 @@ pub struct Gradient {
 }
 impl Gradient {
     pub fn make_source(&self, matrix: &MatrixFixedPoint) -> Box<GradientSource> {
-        let mut source = Box::new(GradientSource { matrix: (*matrix).clone(), lut: [0; 256]});
+        let mut source = Box::new(GradientSource { matrix: (*matrix).clone(), lut: [0; 257]});
         self.build_lut(&mut source.lut);
         source
     }
-    fn build_lut(&self, lut: &mut [u32; 256]) {
+    fn build_lut(&self, lut: &mut [u32; 257]) {
 
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
