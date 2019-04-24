@@ -109,15 +109,15 @@ fn get_pixel(bitmap: &Bitmap, mut x: i32, mut y: i32) -> u32 {
     if x < 0 {
         x = 0;
     }
-    if x > bitmap.width {
-        x = bitmap.width
+    if x >= bitmap.width {
+        x = bitmap.width - 1;
     }
 
     if y < 0 {
         y = 0;
     }
-    if y > bitmap.height {
-        y = bitmap.height;
+    if y >= bitmap.height {
+        y = bitmap.height - 1;
     }
 
     return bitmap.data[(y * bitmap.width + x) as usize];
