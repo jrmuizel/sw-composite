@@ -203,23 +203,23 @@ pub fn fetch_bilinear(bitmap: &Bitmap, x: Fixed, y: Fixed) -> u32 {
     bilinear_interpolation(tl, tr, bl, br, dist_x, dist_y)
 }
 
-struct PointFixedPoint {
-    x: Fixed,
-    y: Fixed,
+pub struct PointFixedPoint {
+    pub x: Fixed,
+    pub y: Fixed,
 }
 
 #[derive(Clone)]
 pub struct MatrixFixedPoint {
-    xx: Fixed,
-    xy: Fixed,
-    yx: Fixed,
-    yy: Fixed,
-    x0: Fixed,
-    y0: Fixed,
+    pub xx: Fixed,
+    pub xy: Fixed,
+    pub yx: Fixed,
+    pub yy: Fixed,
+    pub x0: Fixed,
+    pub y0: Fixed,
 }
 
 impl MatrixFixedPoint {
-    fn transform(&self, x: u16, y: u16) -> PointFixedPoint {
+    pub fn transform(&self, x: u16, y: u16) -> PointFixedPoint {
         let x = x as i32;
         let y = y as i32;
         // when taking integer parameters we can use a regular mulitply instead of a fixed one
