@@ -1,9 +1,9 @@
 const BILINEAR_INTERPOLATION_BITS: u32 = 4;
 
 pub struct Bitmap {
-    width: i32,
-    height: i32,
-    data: Vec<u32>,
+    pub width: i32,
+    pub height: i32,
+    pub data: Vec<u32>,
 }
 
 // we can reduce this to two multiplies
