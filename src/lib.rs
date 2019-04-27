@@ -1,6 +1,6 @@
 const BILINEAR_INTERPOLATION_BITS: u32 = 4;
 
-pub struct Bitmap {
+pub struct Image {
     pub width: i32,
     pub height: i32,
     pub data: Vec<u32>,
@@ -107,7 +107,7 @@ impl Gradient {
 }
 
 
-fn get_pixel(bitmap: &Bitmap, mut x: i32, mut y: i32) -> u32 {
+fn get_pixel(bitmap: &Image, mut x: i32, mut y: i32) -> u32 {
     if x < 0 {
         x = 0;
     }
@@ -188,7 +188,7 @@ pub fn float_to_fixed(x: f32) -> Fixed {
     (x * (1 << FIXED_FRACTION_BITS) as f32) as i32
 }
 
-pub fn fetch_bilinear(bitmap: &Bitmap, x: Fixed, y: Fixed) -> u32 {
+pub fn fetch_bilinear(image: &Image, x: Fixed, y: Fixed) -> u32 {
     let dist_x = bilinear_weight(x);
     let dist_y = bilinear_weight(y);
 
@@ -197,10 +197,10 @@ pub fn fetch_bilinear(bitmap: &Bitmap, x: Fixed, y: Fixed) -> u32 {
     let x2 = x1 + 1;
     let y2 = y1 + 1;
 
-    let tl = get_pixel(bitmap, x1, y1);
-    let tr = get_pixel(bitmap, x2, y1);
-    let bl = get_pixel(bitmap, x1, y2);
-    let br = get_pixel(bitmap, x2, y2);
+    let tl = get_pixel(image, x1, y1);
+    let tr = get_pixel(image, x2, y1);
+    let bl = get_pixel(image, x1, y2);
+    let br = get_pixel(image, x2, y2);
 
     bilinear_interpolation(tl, tr, bl, br, dist_x, dist_y)
 }
