@@ -9,12 +9,11 @@ pub struct Image {
 // we can reduce this to two multiplies
 // http://stereopsis.com/doubleblend.html
 // t is 0..256
-fn lerp(a: u32, b: u32, t: u32) -> u32
-{
+fn lerp(a: u32, b: u32, t: u32) -> u32 {
     let mask = 0xff00ff;
     let brb = ((b & 0xff00ff) * t) >> 8;
     let bag = ((b >> 8) & 0xff00ff) * t;
-    let t = 256-t;
+    let t = 256 - t;
     let arb = ((a & 0xff00ff) * t) >> 8;
     let aag = ((a >> 8) & 0xff00ff) * t;
     let rb = arb + brb;
@@ -25,13 +24,14 @@ fn lerp(a: u32, b: u32, t: u32) -> u32
 
 pub struct GradientStop {
     pub position: f32,
-    pub color: u32
+    pub color: u32,
 }
 
 pub struct GradientSource {
     matrix: MatrixFixedPoint,
     lut: [u32; 257],
 }
+
 impl GradientSource {
     pub fn radial_gradient_eval(&self, x: u16, y: u16) -> u32 {
         let p = self.matrix.transform(x, y);
@@ -59,14 +59,14 @@ impl GradientSource {
 pub struct Gradient {
     pub stops: Vec<GradientStop>
 }
+
 impl Gradient {
     pub fn make_source(&self, matrix: &MatrixFixedPoint) -> Box<GradientSource> {
-        let mut source = Box::new(GradientSource { matrix: (*matrix).clone(), lut: [0; 257]});
+        let mut source = Box::new(GradientSource { matrix: (*matrix).clone(), lut: [0; 257] });
         self.build_lut(&mut source.lut);
         source
     }
     fn build_lut(&self, lut: &mut [u32; 257]) {
-
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
 
@@ -92,7 +92,7 @@ impl Gradient {
                 next_pos = (256. * stop.position) as u32;
                 next_color = stop.color;
             }
-            let inverse = (256 * 256)/(next_pos-last_pos);
+            let inverse = (256 * 256) / (next_pos - last_pos);
             let mut t = 0;
             // XXX we could actually avoid doing any multiplications inside
             // this loop by accumulating (next_color - last_color)*inverse
@@ -127,13 +127,13 @@ fn get_pixel(bitmap: &Image, mut x: i32, mut y: i32) -> u32 {
 
 /* Inspired by Filter_32_opaque from Skia */
 fn bilinear_interpolation(
-                          tl: u32,
-                          tr: u32,
-                          bl: u32,
-                          br: u32,
-                          mut distx: u32,
-                          mut disty: u32,
-                         ) -> u32 {
+    tl: u32,
+    tr: u32,
+    bl: u32,
+    br: u32,
+    mut distx: u32,
+    mut disty: u32,
+) -> u32 {
     let distxy;
     let distxiy;
     let distixy;
@@ -226,8 +226,8 @@ impl MatrixFixedPoint {
         let y = y as i32;
         // when taking integer parameters we can use a regular mulitply instead of a fixed one
         PointFixedPoint {
-x: x * self.xx + self.xy * y + self.x0,
-       y: y * self.yy + self.yx * x + self.y0,
+            x: x * self.xx + self.xy * y + self.x0,
+            y: y * self.yy + self.yx * x + self.y0,
         }
     }
 }
@@ -251,8 +251,17 @@ fn alpha_to_alpha256(alpha: u32) -> u32 {
     alpha + 1
 }
 
+/** Calculates 256 - (value * alpha256) / 255 in range [0,256],
+ *  for [0,255] value and [0,256] alpha256. */
 fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
     let prod = 0xFFFF - value * alpha256;
+    return (prod + (prod >> 8)) >> 8;
+}
+
+/** Calculates (value * alpha256) / 255 in range [0,256],
+ *  for [0,255] value and [0,256] alpha256. */
+fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
+    let prod = value * alpha256;
     return (prod + (prod >> 8)) >> 8;
 }
 
@@ -261,6 +270,11 @@ pub fn muldiv255(a: u8, b: u8) -> u8 {
     ((tmp + (tmp >> 8)) >> 8) as u8
 }
 
+// This approximates the division by 255 using a division by 256.
+// It matches the behaviour of SkBlendARGB32 from Skia in 2017.
+// The behaviour of this function was changed in 2016 by Lee Salzman
+// in Skia:40254c2c2dc28a34f96294d5a1ad94a99b0be8a6 to keep more of the
+// intermediate precision
 pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     let src_alpha = alpha_to_alpha256(alpha);
     let dst_alpha = alpha_mul_inv256(packed_alpha(src), src_alpha);
@@ -273,6 +287,24 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     let dst_rb = (dst & mask) * dst_alpha;
     let dst_ag = ((dst >> 8) & mask) * dst_alpha;
 
-    // we sum src and dst before reducing to 8 bit to avoid accumulating rounding erros
+    // we sum src and dst before reducing to 8 bit to avoid accumulating rounding errors
+    return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
+}
+
+// Similar to over_in but includes an additional clip alpha value
+pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
+    let src_alpha = alpha_to_alpha256(mask);
+    let src_alpha = alpha_mul_256(src_alpha, clip);
+    let dst_alpha = alpha_mul_inv256(packed_alpha(src), src_alpha);
+
+    let mask = 0xFF00FF;
+
+    let src_rb = (src & mask) * src_alpha;
+    let src_ag = ((src >> 8) & mask) * src_alpha;
+
+    let dst_rb = (dst & mask) * dst_alpha;
+    let dst_ag = ((dst >> 8) & mask) * dst_alpha;
+
+    // we sum src and dst before reducing to 8 bit to avoid accumulating rounding errors
     return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
 }
