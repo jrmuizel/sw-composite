@@ -1,4 +1,13 @@
+mod blend;
+
 const BILINEAR_INTERPOLATION_BITS: u32 = 4;
+
+const A32_SHIFT: u32 = 24;
+const R32_SHIFT: u32 = 16;
+const G32_SHIFT: u32 = 8;
+const B32_SHIFT: u32 = 0;
+
+pub use blend::*;
 
 pub struct Image {
     pub width: i32,
@@ -233,7 +242,7 @@ impl MatrixFixedPoint {
 }
 
 fn packed_alpha(x: u32) -> u32 {
-    x >> 24
+    x >> A32_SHIFT
 }
 
 // this is an approximation of true 'over' that does a division by 256 instead
@@ -265,9 +274,9 @@ fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
     return (prod + (prod >> 8)) >> 8;
 }
 
-pub fn muldiv255(a: u8, b: u8) -> u8 {
-    let tmp = (a as u32) * (b as u32) + 0x128;
-    ((tmp + (tmp >> 8)) >> 8) as u8
+pub fn muldiv255(a: u32, b: u32) -> u32 {
+    let tmp = a * b + 0x128;
+    ((tmp + (tmp >> 8)) >> 8)
 }
 
 // This approximates the division by 255 using a division by 256.

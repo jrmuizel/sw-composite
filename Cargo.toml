@@ -2,5 +2,8 @@
 name = "sw-composite"
 version = "0.1.0"
 authors = ["Jeff Muizelaar <jrmuizel@gmail.com>"]
+license = "BSD-3-Clause"
+description = "a collection of software compositing routines"
+documentation = "https://docs.rs/sw-composite"
 
 [dependencies]
