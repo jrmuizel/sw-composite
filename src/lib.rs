@@ -18,7 +18,7 @@ pub struct Image {
 // we can reduce this to two multiplies
 // http://stereopsis.com/doubleblend.html
 // t is 0..256
-fn lerp(a: u32, b: u32, t: u32) -> u32 {
+pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
     let mask = 0xff00ff;
     let brb = ((b & 0xff00ff) * t) >> 8;
     let bag = ((b >> 8) & 0xff00ff) * t;
