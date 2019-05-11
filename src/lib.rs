@@ -321,3 +321,8 @@ pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
     // we sum src and dst before reducing to 8 bit to avoid accumulating rounding errors
     return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
 }
+
+pub fn alpha_lerp(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
+    let alpha = alpha_mul_256(alpha_to_alpha256(mask), clip);
+    return lerp(src, dst, alpha);
+}
