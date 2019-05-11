@@ -15,10 +15,10 @@ pub struct Image {
     pub data: Vec<u32>,
 }
 
-// we can reduce this to two multiplies
-// http://stereopsis.com/doubleblend.html
-// t is 0..256
+/// t is 0..256
 pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
+    // we can reduce this to two multiplies
+    // http://stereopsis.com/doubleblend.html
     let mask = 0xff00ff;
     let brb = ((b & 0xff00ff) * t) >> 8;
     let bag = ((b >> 8) & 0xff00ff) * t;
@@ -29,7 +29,6 @@ pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
     let ag = aag + bag;
     return (rb & mask) | (ag & !mask);
 }
-
 
 pub struct GradientStop {
     pub position: f32,
@@ -260,7 +259,7 @@ pub fn over(src: u32, dst: u32) -> u32 {
     src + (rb & mask) | (ag & !mask)
 }
 
-fn alpha_to_alpha256(alpha: u32) -> u32 {
+pub fn alpha_to_alpha256(alpha: u32) -> u32 {
     alpha + 1
 }
 
