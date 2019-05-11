@@ -44,7 +44,11 @@ pub struct GradientSource {
 impl GradientSource {
     pub fn radial_gradient_eval(&self, x: u16, y: u16) -> u32 {
         let p = self.matrix.transform(x, y);
-        let mut distance = (p.x as f32).hypot(p.y as f32) as u32;
+        // there's no chance that p will overflow when squared
+        // so it's safe to use sqrt
+        let px = p.x as f32;
+        let py = p.y as f32;
+        let mut distance = (px * px + py * py).sqrt() as u32;
         distance >>= 8;
         if distance > 32768 {
             distance = 32786;
