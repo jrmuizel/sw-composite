@@ -1,6 +1,6 @@
 [package]
 name = "sw-composite"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["Jeff Muizelaar <jrmuizel@gmail.com>"]
 license = "BSD-3-Clause"
 description = "a collection of software compositing routines"

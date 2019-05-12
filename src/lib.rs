@@ -8,11 +8,12 @@ const G32_SHIFT: u32 = 8;
 const B32_SHIFT: u32 = 0;
 
 pub use blend::*;
+use std::borrow::Cow;
 
-pub struct Image {
+pub struct Image<'a> {
     pub width: i32,
     pub height: i32,
-    pub data: Vec<u32>,
+    pub data: &'a [u32],
 }
 
 /// t is 0..256
