@@ -1,3 +1,10 @@
+/*
+ * Copyright 2006 The Android Open Source Project
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
 use crate::*;
 
 fn pack_argb32(a: u32, r: u32, g: u32, b: u32) -> u32 {
@@ -114,8 +121,58 @@ fn saturated_add(a: u32, b: u32) -> u32 {
 }
 
 pub fn add(src: u32, dst: u32) -> u32 {
-    return pack_argb32(saturated_add(get_packed_a32(src), get_packed_a32(dst)),
-                       saturated_add(get_packed_r32(src), get_packed_r32(dst)),
-                       saturated_add(get_packed_g32(src), get_packed_g32(dst)),
-                       saturated_add(get_packed_b32(src), get_packed_b32(dst)));
+    pack_argb32(saturated_add(get_packed_a32(src), get_packed_a32(dst)),
+                saturated_add(get_packed_r32(src), get_packed_r32(dst)),
+                saturated_add(get_packed_g32(src), get_packed_g32(dst)),
+                saturated_add(get_packed_b32(src), get_packed_b32(dst)))
 }
+
+pub fn multiply(src: u32, dst: u32) -> u32 {
+    pack_argb32(muldiv255(get_packed_a32(src), get_packed_a32(dst)),
+                muldiv255(get_packed_a32(src), get_packed_a32(dst)),
+                muldiv255(get_packed_a32(src), get_packed_a32(dst)),
+                muldiv255(get_packed_a32(src), get_packed_a32(dst)))
+}
+
+fn srcover_byte(a: u32, b: u32) -> u32 {
+    a + b - muldiv255(a, b)
+}
+
+pub fn screen(src: u32, dst: u32) -> u32 {
+    pack_argb32(srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
+                srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
+                srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
+                srcover_byte(get_packed_a32(src), get_packed_a32(dst)))
+}
+
+fn clamp_div255round(prod: i32) -> u32 {
+    if prod <= 0 {
+        return 0;
+    } else if prod >= 255 * 255 {
+        return 255;
+    } else {
+        return div255(prod as u32);
+    }
+}
+
+fn overlay_byte(sc: u32, dc: u32, sa: u32, da: u32) -> u32 {
+    let tmp = sc * (255 - da) + dc * (255 - sa);
+    let rc;
+    if 2 * dc <= da {
+        rc = 2 * sc * dc;
+    } else {
+        rc = sa * da - 2 * (da - dc) * (sa - sc);
+    }
+    clamp_div255round((rc + tmp) as i32)
+}
+
+pub fn overlay(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src);
+    let da = get_packed_a32(dst);
+    pack_argb32(srcover_byte(sa, da),
+                overlay_byte(get_packed_a32(src), get_packed_a32(dst), sa, da),
+                overlay_byte(get_packed_a32(src), get_packed_a32(dst), sa, da),
+                overlay_byte(get_packed_a32(src), get_packed_a32(dst), sa, da))
+}
+
+

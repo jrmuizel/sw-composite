@@ -8,7 +8,6 @@ const G32_SHIFT: u32 = 8;
 const B32_SHIFT: u32 = 0;
 
 pub use blend::*;
-use std::borrow::Cow;
 
 pub struct Image<'a> {
     pub width: i32,
@@ -280,6 +279,11 @@ fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
 
 pub fn muldiv255(a: u32, b: u32) -> u32 {
     let tmp = a * b + 0x128;
+    ((tmp + (tmp >> 8)) >> 8)
+}
+
+pub fn div255(a: u32) -> u32 {
+    let tmp = a + 0x128;
     ((tmp + (tmp >> 8)) >> 8)
 }
 
