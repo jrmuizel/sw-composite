@@ -175,4 +175,193 @@ pub fn overlay(src: u32, dst: u32) -> u32 {
                 overlay_byte(get_packed_a32(src), get_packed_a32(dst), sa, da))
 }
 
+fn darken_byte(sc: u32, dc: u32, sa: u32, da: u32) -> u32 {
+    let sd = sc * da;
+    let ds = dc * sa;
+    if sd < ds {
+        // srcover
+        return sc + dc - div255(ds);
+    } else {
+        // dstover
+        return dc + sc - div255(sd);
+    }
+}
+
+pub fn darken(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src);
+    let da = get_packed_a32(dst);
+    pack_argb32(srcover_byte(sa, da),
+                darken_byte(get_packed_a32(src), get_packed_a32(dst), sa, da),
+                darken_byte(get_packed_a32(src), get_packed_a32(dst), sa, da),
+                darken_byte(get_packed_a32(src), get_packed_a32(dst), sa, da))
+}
+
+fn lighten_byte(sc: u32, dc: u32, sa: u32, da: u32) -> u32 {
+    let sd = sc * da;
+    let ds = dc * sa;
+    if sd > ds {
+        // srcover
+        return sc + dc - div255(ds);
+    } else {
+        // dstover
+        return dc + sc - div255(sd);
+    }
+}
+
+pub fn lighten(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src);
+    let da = get_packed_a32(dst);
+    pack_argb32(srcover_byte(sa, da),
+                lighten_byte(get_packed_a32(src), get_packed_a32(dst), sa, da),
+                lighten_byte(get_packed_a32(src), get_packed_a32(dst), sa, da),
+                lighten_byte(get_packed_a32(src), get_packed_a32(dst), sa, da))
+}
+
+fn colordodge_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
+    let mut diff = sa - sc;
+    let rc;
+    if 0 == dc {
+        return muldiv255(sc as u32 , (255 - da) as u32);
+    } else if 0 == diff {
+        rc = sa * da + sc * (255 - da) + dc * (255 - sa);
+    } else {
+        diff = (dc * sa) / diff;
+        rc = sa * (if da < diff { da } else { diff }) + sc * (255 - da) + dc * (255 - sa);
+    }
+    return clamp_div255round(rc);
+}
+
+pub fn colordodge(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src) as i32;
+    let da = get_packed_a32(dst) as i32;
+    pack_argb32(srcover_byte(sa as u32, da as u32),
+                colordodge_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                colordodge_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                colordodge_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da))
+}
+
+fn colorburn_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
+    let rc;
+    if dc == da {
+        rc = sa * da + sc * (255 - da) + dc * (255 - sa);
+    } else if 0 == sc {
+        return muldiv255(dc as u32 , (255 - sa) as u32);
+    } else {
+        let tmp = (da - dc) * sa / sc;
+        rc = sa * (da - (if da < tmp { da } else { tmp } ))
+        + sc * (255 - da) + dc * (255 - sa);
+    }
+    return clamp_div255round(rc);
+}
+
+pub fn colorburn(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src) as i32;
+    let da = get_packed_a32(dst) as i32;
+    pack_argb32(srcover_byte(sa as u32, da as u32),
+                colorburn_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                colorburn_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                colorburn_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da))
+}
+
+pub fn hardlight_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
+    let rc;
+    if 2 * sc <= sa {
+        rc = 2 * sc * dc;
+    } else {
+        rc = sa * da - 2 * (da - dc) * (sa - sc);
+    }
+    return clamp_div255round(rc + sc * (255 - da) + dc * (255 - sa));
+}
+
+pub fn hardlight(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src) as i32;
+    let da = get_packed_a32(dst) as i32;
+    pack_argb32(srcover_byte(sa as u32, da as u32),
+                hardlight_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                hardlight_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                hardlight_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da))
+}
+
+/* www.worldserver.com/turk/computergraphics/FixedSqrt.pdf
+*/
+fn sqrt_bits(x: i32, count: i32) -> i32 {
+    debug_assert!(x >= 0 && count > 0 && count <= 30);
+
+    let mut root = 0;
+    let mut rem_hi = 0;
+    let mut rem_lo = x;
+
+    loop {
+        root <<= 1;
+
+        rem_hi = (rem_hi << 2) | (rem_lo >> 30);
+        rem_lo <<= 2;
+
+        let test_div = (root << 1) + 1;
+        if rem_hi >= test_div {
+            rem_hi -= test_div;
+            root += 1;
+        }
+        if -count < 0 {
+            break;
+        }
+    }
+
+    return root;
+}
+
+type U8Cpu = u32;
+// returns 255 * sqrt(n/255)
+fn sqrt_unit_byte(n: U8Cpu) -> U8Cpu {
+    return sqrt_bits(n as i32, 15+4) as u32;
+}
+
+fn softlight_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
+    let m = if da != 0 { dc * 256 / da } else { 0 };
+    let rc;
+    if 2 * sc <= sa {
+        rc = dc * (sa + ((2 * sc - sa) * (256 - m) >> 8));
+    } else if 4 * dc <= da {
+        let tmp = (4 * m * (4 * m + 256) * (m - 256) >> 16) + 7 * m;
+        rc = dc * sa + (da * (2 * sc - sa) * tmp >> 8);
+    } else {
+        let tmp = sqrt_unit_byte(m as u32) as i32 - m;
+        rc = dc * sa + (da * (2 * sc - sa) * tmp >> 8);
+    }
+    return clamp_div255round(rc + sc * (255 - da) + dc * (255 - sa));
+}
+
+pub fn softlight(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src) as i32;
+    let da = get_packed_a32(dst) as i32;
+    pack_argb32(srcover_byte(sa as u32, da as u32),
+                softlight_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                softlight_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                softlight_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da))
+}
+
+
+fn clamp_signed_byte(n: i32) -> u32 {
+    if n < 0 {
+        0
+    } else if n > 255 {
+        255
+    } else {
+        n as u32
+    }
+}
+
+fn difference_byte(sc: i32, dc: i32, sa: i32, da: i32)  -> u32{
+    let tmp = (sc * da).min(dc * sa);
+    return clamp_signed_byte(sc + dc - 2 * div255(tmp as u32) as i32);
+}
+
+pub fn difference(src: u32, dst: u32) -> u32 {
+    let sa = get_packed_a32(src) as i32;
+    let da = get_packed_a32(dst) as i32;
+    pack_argb32(srcover_byte(sa as u32, da as u32),
+                difference_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                difference_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da),
+                difference_byte(get_packed_a32(src) as i32, get_packed_a32(dst) as i32, sa, da))
+}
 
