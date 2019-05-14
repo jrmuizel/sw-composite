@@ -9,6 +9,7 @@ const B32_SHIFT: u32 = 0;
 
 pub use blend::*;
 
+#[derive(Clone, Copy)]
 pub struct Image<'a> {
     pub width: i32,
     pub height: i32,
@@ -30,6 +31,7 @@ pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
     return (rb & mask) | (ag & !mask);
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct GradientStop {
     pub position: f32,
     pub color: u32,
@@ -68,6 +70,7 @@ impl GradientSource {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Gradient {
     pub stops: Vec<GradientStop>
 }
