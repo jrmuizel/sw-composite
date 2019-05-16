@@ -121,24 +121,52 @@ impl Gradient {
     }
 }
 
-
-fn get_pixel(bitmap: &Image, mut x: i32, mut y: i32) -> u32 {
-    if x < 0 {
-        x = 0;
-    }
-    if x >= bitmap.width {
-        x = bitmap.width - 1;
-    }
-
-    if y < 0 {
-        y = 0;
-    }
-    if y >= bitmap.height {
-        y = bitmap.height - 1;
-    }
-
-    return bitmap.data[(y * bitmap.width + x) as usize];
+pub trait PixelFetch {
+    fn get_pixel(bitmap: &Image,  x: i32,  y: i32) -> u32;
 }
+
+
+pub struct PadFetch;
+impl PixelFetch for PadFetch {
+    fn get_pixel(bitmap: &Image, mut x: i32, mut y: i32) -> u32 {
+        if x < 0 {
+            x = 0;
+        }
+        if x >= bitmap.width {
+            x = bitmap.width - 1;
+        }
+
+        if y < 0 {
+            y = 0;
+        }
+        if y >= bitmap.height {
+            y = bitmap.height - 1;
+        }
+
+        return bitmap.data[(y * bitmap.width + x) as usize];
+    }
+}
+
+pub struct RepeatFetch;
+impl PixelFetch for RepeatFetch {
+    fn get_pixel(bitmap: &Image, mut x: i32, mut y: i32) -> u32 {
+
+        // XXX: This is a very slow approach to repeating.
+        // We should instead do the wrapping in the iterator
+        x = x % bitmap.width;
+        if x < 0 {
+            x = x + bitmap.width;
+        }
+
+        y = y % bitmap.height;
+        if y < 0 {
+            y = y + bitmap.height;
+        }
+
+        return bitmap.data[(y * bitmap.width + x) as usize];
+    }
+}
+
 
 /* Inspired by Filter_32_opaque from Skia */
 fn bilinear_interpolation(
@@ -203,7 +231,7 @@ pub fn float_to_fixed(x: f32) -> Fixed {
     (x * (1 << FIXED_FRACTION_BITS) as f32) as i32
 }
 
-pub fn fetch_bilinear(image: &Image, x: Fixed, y: Fixed) -> u32 {
+pub fn fetch_bilinear<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed) -> u32 {
     let dist_x = bilinear_weight(x);
     let dist_y = bilinear_weight(y);
 
@@ -212,10 +240,10 @@ pub fn fetch_bilinear(image: &Image, x: Fixed, y: Fixed) -> u32 {
     let x2 = x1 + 1;
     let y2 = y1 + 1;
 
-    let tl = get_pixel(image, x1, y1);
-    let tr = get_pixel(image, x2, y1);
-    let bl = get_pixel(image, x1, y2);
-    let br = get_pixel(image, x2, y2);
+    let tl = Fetch::get_pixel(image, x1, y1);
+    let tr = Fetch::get_pixel(image, x2, y1);
+    let bl = Fetch::get_pixel(image, x1, y2);
+    let br = Fetch::get_pixel(image, x2, y2);
 
     bilinear_interpolation(tl, tr, bl, br, dist_x, dist_y)
 }
