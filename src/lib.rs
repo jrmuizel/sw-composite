@@ -192,7 +192,15 @@ fn bilinear_interpolation(
     distxy = distx * disty;
     distxiy = (distx << 4) - distxy; /* distx * (16 - disty) */
     distixy = (disty << 4) - distxy; /* disty * (16 - distx) */
-    distixiy = 16 * 16 - (disty << 4) - (distx << 4) + distxy; /* (16 - distx) * (16 - disty) */
+
+    /* (16 - distx) * (16 - disty) */
+    // The intermediate calculation can underflow so we use
+    // wrapping arithmetic to let the compiler know that it's ok
+    distixiy = (16u32 * 16)
+        .wrapping_sub(disty << 4)
+        .wrapping_sub(distx << 4)
+        .wrapping_add(distxy);
+    debug_assert!(distixiy >= 0);
 
     lo = (tl & 0xff00ff) * distixiy;
     hi = ((tl >> 8) & 0xff00ff) * distixiy;
