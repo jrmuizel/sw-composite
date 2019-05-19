@@ -200,7 +200,6 @@ fn bilinear_interpolation(
         .wrapping_sub(disty << 4)
         .wrapping_sub(distx << 4)
         .wrapping_add(distxy);
-    debug_assert!(distixiy >= 0);
 
     lo = (tl & 0xff00ff) * distixiy;
     hi = ((tl >> 8) & 0xff00ff) * distixiy;
