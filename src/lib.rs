@@ -9,6 +9,8 @@ const B32_SHIFT: u32 = 0;
 
 pub use blend::*;
 
+type Alpha256 = u32;
+
 #[derive(Clone, Copy)]
 pub struct Image<'a> {
     pub width: i32,
@@ -76,16 +78,16 @@ pub struct Gradient {
 }
 
 impl Gradient {
-    pub fn make_source(&self, matrix: &MatrixFixedPoint) -> Box<GradientSource> {
+    pub fn make_source(&self, matrix: &MatrixFixedPoint, alpha: u32) -> Box<GradientSource> {
         let mut source = Box::new(GradientSource { matrix: (*matrix).clone(), lut: [0; 257] });
-        self.build_lut(&mut source.lut);
+        self.build_lut(&mut source.lut, alpha_to_alpha256(alpha));
         source
     }
-    fn build_lut(&self, lut: &mut [u32; 257]) {
+    fn build_lut(&self, lut: &mut [u32; 257], alpha: Alpha256) {
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
 
-        let mut last_color = stop.color;
+        let mut last_color = alpha_mul(stop.color, alpha);
         let mut last_pos = 0;
 
         let mut next_color = last_color;
@@ -99,13 +101,13 @@ impl Gradient {
                 if stop_idx >= self.stops.len() {
                     stop = &self.stops[self.stops.len() - 1];
                     next_pos = 256;
-                    next_color = stop.color;
+                    next_color = alpha_mul(stop.color, alpha);
                     break;
                 } else {
                     stop = &self.stops[stop_idx];
                 }
                 next_pos = (256. * stop.position) as u32;
-                next_color = stop.color;
+                next_color = alpha_mul(stop.color, alpha);
             }
             let inverse = (256 * 256) / (next_pos - last_pos);
             let mut t = 0;
@@ -207,6 +209,49 @@ fn bilinear_interpolation(
     ((lo >> 8) & 0xff00ff) | (hi & !0xff00ff)
 }
 
+/* Inspired by Filter_32_alpha from Skia */
+fn bilinear_interpolation_alpha(
+    tl: u32,
+    tr: u32,
+    bl: u32,
+    br: u32,
+    mut distx: u32,
+    mut disty: u32,
+    alpha: Alpha256
+) -> u32 {
+    let distxy;
+    let distxiy;
+    let distixy;
+    let distixiy;
+    let mut lo;
+    let mut hi;
+
+    distx <<= 4 - BILINEAR_INTERPOLATION_BITS;
+    disty <<= 4 - BILINEAR_INTERPOLATION_BITS;
+
+    distxy = distx * disty;
+    distxiy = (distx << 4) - distxy; /* distx * (16 - disty) */
+    distixy = (disty << 4) - distxy; /* disty * (16 - distx) */
+    distixiy = 16 * 16 - (disty << 4) - (distx << 4) + distxy; /* (16 - distx) * (16 - disty) */
+
+    lo = (tl & 0xff00ff) * distixiy;
+    hi = ((tl >> 8) & 0xff00ff) * distixiy;
+
+    lo += (tr & 0xff00ff) * distxiy;
+    hi += ((tr >> 8) & 0xff00ff) * distxiy;
+
+    lo += (bl & 0xff00ff) * distixy;
+    hi += ((bl >> 8) & 0xff00ff) * distixy;
+
+    lo += (br & 0xff00ff) * distxy;
+    hi += ((br >> 8) & 0xff00ff) * distxy;
+
+    lo = ((lo >> 8) & 0xff00ff) * alpha;
+    hi = ((hi >> 8) & 0xff00ff) * alpha;
+
+    ((lo >> 8) & 0xff00ff) | (hi & !0xff00ff)
+}
+
 const FIXED_FRACTION_BITS: u32 = 16;
 pub const FIXED_ONE: i32 = 1 << FIXED_FRACTION_BITS;
 
@@ -246,6 +291,23 @@ pub fn fetch_bilinear<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed) -> u
     let br = Fetch::get_pixel(image, x2, y2);
 
     bilinear_interpolation(tl, tr, bl, br, dist_x, dist_y)
+}
+
+pub fn fetch_bilinear_alpha<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed, alpha: Alpha256) -> u32 {
+    let dist_x = bilinear_weight(x);
+    let dist_y = bilinear_weight(y);
+
+    let x1 = fixed_to_int(x);
+    let y1 = fixed_to_int(y);
+    let x2 = x1 + 1;
+    let y2 = y1 + 1;
+
+    let tl = Fetch::get_pixel(image, x1, y1);
+    let tr = Fetch::get_pixel(image, x2, y1);
+    let bl = Fetch::get_pixel(image, x1, y2);
+    let br = Fetch::get_pixel(image, x2, y2);
+
+    bilinear_interpolation_alpha(tl, tr, bl, br, dist_x, dist_y, alpha)
 }
 
 pub struct PointFixedPoint {
@@ -316,6 +378,15 @@ pub fn muldiv255(a: u32, b: u32) -> u32 {
 pub fn div255(a: u32) -> u32 {
     let tmp = a + 0x128;
     ((tmp + (tmp >> 8)) >> 8)
+}
+
+pub fn alpha_mul(x: u32, a: Alpha256) -> u32 {
+    let mask = 0xFF00FF;
+
+    let src_rb = ((x & mask) * a) >> 8;
+    let src_ag = ((x >> 8) & mask) * a;
+
+    return (src_rb & mask) | (src_ag & !mask)
 }
 
 // This approximates the division by 255 using a division by 256.

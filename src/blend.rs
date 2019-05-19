@@ -21,14 +21,7 @@ fn get_packed_r32(packed: u32) -> u32 { ((packed) << (24 - R32_SHIFT)) >> 24 }
 fn get_packed_g32(packed: u32) -> u32 { ((packed) << (24 - G32_SHIFT)) >> 24 }
 fn get_packed_b32(packed: u32) -> u32 { ((packed) << (24 - B32_SHIFT)) >> 24 }
 
-fn alpha_mul(x: u32, a: u32) -> u32 {
-    let mask = 0xFF00FF;
 
-    let src_rb = ((x & mask) * a) >> 8;
-    let src_ag = ((x >> 8) & mask) * a;
-
-    return (src_rb & mask) | (src_ag & !mask)
-}
 
 pub fn dst(_src: u32, dst: u32) -> u32 {
     dst
