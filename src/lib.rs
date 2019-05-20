@@ -41,34 +41,56 @@ pub struct GradientStop {
 
 pub struct GradientSource {
     matrix: MatrixFixedPoint,
-    lut: [u32; 257],
+    lut: [u32; 256],
+}
+
+#[derive(Clone, Copy)]
+pub enum Spread {
+    Pad,
+    Reflect,
+    Repeat,
+}
+
+fn apply_spread(mut x: i32, spread: Spread) -> i32 {
+    match spread {
+        Spread::Pad => {
+            if x >= 255 {
+                x = 255;
+            }
+            if x < 0 {
+                x = 0;
+            }
+        }
+        Spread::Repeat => {
+            x &= 255;
+        }
+        Spread::Reflect => {
+            // a trick from skia to reflect the bits. 256 -> 255
+            let sign = (x << 23) >> 31;
+            x = (x ^ sign) & 255;
+        }
+    }
+    x
 }
 
 impl GradientSource {
-    pub fn radial_gradient_eval(&self, x: u16, y: u16) -> u32 {
+    pub fn radial_gradient_eval(&self, x: u16, y: u16, spread: Spread) -> u32 {
         let p = self.matrix.transform(x, y);
         // there's no chance that p will overflow when squared
         // so it's safe to use sqrt
         let px = p.x as f32;
         let py = p.y as f32;
-        let mut distance = (px * px + py * py).sqrt() as u32;
-        distance >>= 8;
-        if distance > 32768 {
-            distance = 32786;
-        }
-        self.lut[(distance >> 7) as usize]
+        let mut distance = (px * px + py * py).sqrt() as i32;
+        distance >>= 16;
+
+        self.lut[apply_spread(distance, spread) as usize]
     }
 
-    pub fn linear_gradient_eval(&self, x: u16, y: u16) -> u32 {
+    pub fn linear_gradient_eval(&self, x: u16, y: u16, spread: Spread) -> u32 {
         let p = self.matrix.transform(x, y);
-        let mut lx = p.x >> 16;
-        if lx >= 256 {
-            lx = 256;
-        }
-        if lx < 0 {
-            lx = 0;
-        }
-        self.lut[lx as usize]
+        let lx = p.x >> 16;
+
+        self.lut[apply_spread(lx, spread) as usize]
     }
 }
 
@@ -79,11 +101,11 @@ pub struct Gradient {
 
 impl Gradient {
     pub fn make_source(&self, matrix: &MatrixFixedPoint, alpha: u32) -> Box<GradientSource> {
-        let mut source = Box::new(GradientSource { matrix: (*matrix).clone(), lut: [0; 257] });
+        let mut source = Box::new(GradientSource { matrix: (*matrix).clone(), lut: [0; 256] });
         self.build_lut(&mut source.lut, alpha_to_alpha256(alpha));
         source
     }
-    fn build_lut(&self, lut: &mut [u32; 257], alpha: Alpha256) {
+    fn build_lut(&self, lut: &mut [u32; 256], alpha: Alpha256) {
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
 
@@ -91,22 +113,22 @@ impl Gradient {
         let mut last_pos = 0;
 
         let mut next_color = last_color;
-        let mut next_pos = (256. * stop.position) as u32;
+        let mut next_pos = (255. * stop.position) as u32;
 
         let mut i = 0;
-        while i <= 256 {
+        while i <= 255 {
             while next_pos <= i {
                 stop_idx += 1;
                 last_color = next_color;
                 if stop_idx >= self.stops.len() {
                     stop = &self.stops[self.stops.len() - 1];
-                    next_pos = 256;
+                    next_pos = 255;
                     next_color = alpha_mul(stop.color, alpha);
                     break;
                 } else {
                     stop = &self.stops[stop_idx];
                 }
-                next_pos = (256. * stop.position) as u32;
+                next_pos = (255. * stop.position) as u32;
                 next_color = alpha_mul(stop.color, alpha);
             }
             let inverse = (256 * 256) / (next_pos - last_pos);
