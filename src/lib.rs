@@ -44,6 +44,17 @@ pub struct GradientSource {
     lut: [u32; 256],
 }
 
+pub struct TwoCircleRadialGradientSource {
+    matrix: MatrixFixedPoint,
+    c1x: f32,
+    c1y: f32,
+    r1: f32,
+    c2x: f32,
+    c2y: f32,
+    r2: f32,
+    lut: [u32; 256],
+}
+
 #[derive(Clone, Copy)]
 pub enum Spread {
     Pad,
@@ -94,6 +105,38 @@ impl GradientSource {
     }
 }
 
+impl TwoCircleRadialGradientSource {
+    pub fn eval(&self, x: u16, y: u16, spread: Spread) -> u32 {
+        let p = self.matrix.transform(x, y);
+        // XXX: this is slow and bad
+        // the derivation is from pixman
+        let px = p.x as f32 / 65536.;
+        let py = p.y as f32 / 65536.;
+        let cdx = self.c2x - self.c1x;
+        let cdy = self.c2y - self.c1y;
+        let pdx = px - self.c1x;
+        let pdy = py - self.c1y;
+        let dr = self.r2 - self.r1;
+        let a = cdx*cdx + cdy*cdy - dr*dr;
+        let b = pdx*cdx + pdy*cdy + self.r1*dr;
+        let c = pdx*pdx + pdy*pdy - self.r1*self.r1;
+        let t1 = (b + (b*b - a*c).sqrt())/a;
+        let t2 = (b - (b*b - a*c).sqrt())/a;
+
+        let t = if a == 0. {
+            0.
+        } else {
+            if t1 > t2 {
+                t1
+            } else {
+                t2
+            }
+        };
+
+        self.lut[apply_spread((t * 255.) as i32, spread) as usize]
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Gradient {
     pub stops: Vec<GradientStop>
@@ -105,6 +148,18 @@ impl Gradient {
         self.build_lut(&mut source.lut, alpha_to_alpha256(alpha));
         source
     }
+
+    pub fn make_two_circle_source(&self, c1x: f32,
+                                  c1y: f32,
+                                  r1: f32,
+                                  c2x: f32,
+                                  c2y: f32,
+                                  r2: f32, matrix: &MatrixFixedPoint, alpha: u32) -> Box<TwoCircleRadialGradientSource> {
+        let mut source = Box::new(TwoCircleRadialGradientSource { c1x, c1y, r1, c2x, c2y, r2, matrix: (*matrix).clone(), lut: [0; 256] });
+        self.build_lut(&mut source.lut, alpha_to_alpha256(alpha));
+        source
+    }
+
     fn build_lut(&self, lut: &mut [u32; 256], alpha: Alpha256) {
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
