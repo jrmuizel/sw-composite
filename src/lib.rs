@@ -92,14 +92,14 @@ impl GradientSource {
         let px = p.x as f32;
         let py = p.y as f32;
         let mut distance = (px * px + py * py).sqrt() as i32;
-        distance >>= 16;
+        distance >>= 8;
 
         self.lut[apply_spread(distance, spread) as usize]
     }
 
     pub fn linear_gradient_eval(&self, x: u16, y: u16, spread: Spread) -> u32 {
         let p = self.matrix.transform(x, y);
-        let lx = p.x >> 16;
+        let lx = p.x >> 8;
 
         self.lut[apply_spread(lx, spread) as usize]
     }
@@ -110,8 +110,8 @@ impl TwoCircleRadialGradientSource {
         let p = self.matrix.transform(x, y);
         // XXX: this is slow and bad
         // the derivation is from pixman
-        let px = p.x as f32 / 65536.;
-        let py = p.y as f32 / 65536.;
+        let px = p.x as f32 / 256.;
+        let py = p.y as f32 / 256.;
         let cdx = self.c2x - self.c1x;
         let cdy = self.c2y - self.c1y;
         let pdx = px - self.c1x;
