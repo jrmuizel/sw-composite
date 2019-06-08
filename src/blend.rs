@@ -497,6 +497,37 @@ pub fn hue(src: u32, dst: u32) -> u32 {
     return pack_argb32(a, r, g, b);
 }
 
+pub fn saturation(src: u32, dst: u32) -> u32 {
+    let sr = get_packed_r32(src) as i32;
+    let sg = get_packed_g32(src) as i32;
+    let sb = get_packed_b32(src) as i32;
+    let sa = get_packed_a32(src) as i32;
+
+    let dr = get_packed_r32(dst) as i32;
+    let dg = get_packed_g32(dst) as i32;
+    let db = get_packed_b32(dst) as i32;
+    let da = get_packed_a32(dst) as i32;
+    let mut Dr; let mut Dg; let mut Db;
+
+    if sa != 0 && da != 0 {
+        Dr = dr * sa;
+        Dg = dg * sa;
+        Db = db * sa;
+        set_sat(&mut Dr, &mut Dg, &mut Db, sat(sr, sg, sb) * da);
+        set_lum(&mut Dr, &mut Dg, &mut Db, sa * da, lum(dr, dg, db) * sa);
+    } else {
+        Dr = 0;
+        Dg = 0;
+        Db = 0;
+    }
+
+    let a = srcover_byte(sa as u32, da as u32);
+    let r = blendfunc_nonsep_byte(sr, dr, sa, da, Dr);
+    let g = blendfunc_nonsep_byte(sg, dg, sa, da, Dg);
+    let b = blendfunc_nonsep_byte(sb, db, sa, da, Db);
+    return pack_argb32(a, r, g, b);
+}
+
 pub fn color(src: u32, dst: u32) -> u32 {
     let sr = get_packed_r32(src) as i32;
     let sg = get_packed_g32(src) as i32;
