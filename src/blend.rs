@@ -255,7 +255,7 @@ pub fn colorburn(src: u32, dst: u32) -> u32 {
                 colorburn_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
 }
 
-pub fn hardlight_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
+fn hardlight_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
     let rc;
     if 2 * sc <= sa {
         rc = 2 * sc * dc;
