@@ -171,6 +171,11 @@ impl Gradient {
         let mut next_pos = (255. * stop.position) as u32;
 
         let mut i = 0;
+
+        const FIXED_SHIFT: u32 = 8;
+        const FIXED_ONE: u32 = 1 << FIXED_SHIFT;
+        const FIXED_HALF: u32 = FIXED_ONE >> 1;
+
         while i <= 255 {
             while next_pos <= i {
                 stop_idx += 1;
@@ -186,12 +191,12 @@ impl Gradient {
                 next_pos = (255. * stop.position) as u32;
                 next_color = alpha_mul(stop.color, alpha);
             }
-            let inverse = (256 * 256) / (next_pos - last_pos);
+            let inverse = (FIXED_ONE * 256) / (next_pos - last_pos);
             let mut t = 0;
             // XXX we could actually avoid doing any multiplications inside
             // this loop by accumulating (next_color - last_color)*inverse
             while i <= next_pos {
-                lut[i as usize] = lerp(last_color, next_color, t >> 8);
+                lut[i as usize] = lerp(last_color, next_color, (t + FIXED_HALF) >> FIXED_SHIFT);
                 t += inverse;
                 i += 1;
             }
