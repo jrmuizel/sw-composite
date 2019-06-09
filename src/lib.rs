@@ -33,6 +33,7 @@ pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
     return (rb & mask) | (ag & !mask);
 }
 
+/// color is unpremultiplied argb
 #[derive(Clone, Copy, Debug)]
 pub struct GradientStop {
     pub position: f32,
@@ -196,7 +197,9 @@ impl Gradient {
             // XXX we could actually avoid doing any multiplications inside
             // this loop by accumulating (next_color - last_color)*inverse
             while i <= next_pos {
-                lut[i as usize] = lerp(last_color, next_color, (t + FIXED_HALF) >> FIXED_SHIFT);
+                // stops need to be represented in unpremultipled form otherwise we lose information
+                // that we need when lerping between colors
+                lut[i as usize] = premultiply(lerp(last_color, next_color, (t + FIXED_HALF) >> FIXED_SHIFT));
                 t += inverse;
                 i += 1;
             }
@@ -431,6 +434,37 @@ impl MatrixFixedPoint {
         }
     }
 }
+
+fn premultiply(c: u32) -> u32 {
+    // This could be optimized by using SWAR
+    let a = get_packed_a32(c);
+    let mut r = get_packed_r32(c);
+    let mut g = get_packed_g32(c);
+    let mut b = get_packed_b32(c);
+
+    if a < 255 {
+        r = muldiv255(r, a);
+        g = muldiv255(g, a);
+        b = muldiv255(b, a);
+    }
+
+    pack_argb32(a, r, g, b)
+}
+
+fn pack_argb32(a: u32, r: u32, g: u32, b: u32) -> u32 {
+    debug_assert!(r <= a);
+    debug_assert!(g <= a);
+    debug_assert!(b <= a);
+
+    return (a << A32_SHIFT) | (r << R32_SHIFT) |
+        (g << G32_SHIFT) | (b << B32_SHIFT);
+}
+
+fn get_packed_a32(packed: u32) -> u32 { ((packed) << (24 - A32_SHIFT)) >> 24 }
+fn get_packed_r32(packed: u32) -> u32 { ((packed) << (24 - R32_SHIFT)) >> 24 }
+fn get_packed_g32(packed: u32) -> u32 { ((packed) << (24 - G32_SHIFT)) >> 24 }
+fn get_packed_b32(packed: u32) -> u32 { ((packed) << (24 - B32_SHIFT)) >> 24 }
+
 
 fn packed_alpha(x: u32) -> u32 {
     x >> A32_SHIFT

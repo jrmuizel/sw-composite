@@ -8,19 +8,6 @@
 
 use crate::*;
 
-fn pack_argb32(a: u32, r: u32, g: u32, b: u32) -> u32 {
-    assert!(r <= a);
-    assert!(g <= a);
-    assert!(b <= a);
-
-    return (a << A32_SHIFT) | (r << R32_SHIFT) |
-        (g << G32_SHIFT) | (b << B32_SHIFT);
-}
-
-fn get_packed_a32(packed: u32) -> u32 { ((packed) << (24 - A32_SHIFT)) >> 24 }
-fn get_packed_r32(packed: u32) -> u32 { ((packed) << (24 - R32_SHIFT)) >> 24 }
-fn get_packed_g32(packed: u32) -> u32 { ((packed) << (24 - G32_SHIFT)) >> 24 }
-fn get_packed_b32(packed: u32) -> u32 { ((packed) << (24 - B32_SHIFT)) >> 24 }
 
 pub fn dst(_src: u32, dst: u32) -> u32 {
     dst
