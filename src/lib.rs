@@ -466,12 +466,12 @@ fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
 }
 
 pub fn muldiv255(a: u32, b: u32) -> u32 {
-    let tmp = a * b + 0x128;
+    let tmp = a * b + 128;
     ((tmp + (tmp >> 8)) >> 8)
 }
 
 pub fn div255(a: u32) -> u32 {
-    let tmp = a + 0x128;
+    let tmp = a + 128;
     ((tmp + (tmp >> 8)) >> 8)
 }
 
