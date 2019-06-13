@@ -106,11 +106,20 @@ pub fn add(src: u32, dst: u32) -> u32 {
                 saturated_add(get_packed_b32(src), get_packed_b32(dst)))
 }
 
+// kMultiply_Mode
+// B(Cb, Cs) = Cb x Cs
+// multiply uses its own version of blendfunc_byte because sa and da are not needed
+fn blendfunc_multiply_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
+    clamp_div255round(sc * (255 - da)  + dc * (255 - sa)  + sc * dc)
+}
+
 pub fn multiply(src: u32, dst: u32) -> u32 {
-    pack_argb32(muldiv255(get_packed_a32(src), get_packed_a32(dst)),
-                muldiv255(get_packed_r32(src), get_packed_r32(dst)),
-                muldiv255(get_packed_g32(src), get_packed_g32(dst)),
-                muldiv255(get_packed_b32(src), get_packed_b32(dst)))
+    let sa = get_packed_a32(src) as i32;
+    let da = get_packed_a32(dst) as i32;
+    pack_argb32(srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
+                blendfunc_multiply_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+                blendfunc_multiply_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+                blendfunc_multiply_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
 }
 
 fn srcover_byte(a: u32, b: u32) -> u32 {
