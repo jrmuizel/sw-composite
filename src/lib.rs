@@ -19,6 +19,7 @@ pub struct Image<'a> {
 }
 
 /// t is 0..256
+#[inline]
 pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
     // we can reduce this to two multiplies
     // http://stereopsis.com/doubleblend.html
@@ -523,6 +524,7 @@ pub fn alpha_mul(x: u32, a: Alpha256) -> u32 {
 // The behaviour of this function was changed in 2016 by Lee Salzman
 // in Skia:40254c2c2dc28a34f96294d5a1ad94a99b0be8a6 to keep more of the
 // intermediate precision
+#[inline]
 pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     let src_alpha = alpha_to_alpha256(alpha);
     let dst_alpha = alpha_mul_inv256(packed_alpha(src), src_alpha);
