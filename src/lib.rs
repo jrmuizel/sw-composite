@@ -510,6 +510,7 @@ pub fn div255(a: u32) -> u32 {
     ((tmp + (tmp >> 8)) >> 8)
 }
 
+#[inline]
 pub fn alpha_mul(x: u32, a: Alpha256) -> u32 {
     let mask = 0xFF00FF;
 
