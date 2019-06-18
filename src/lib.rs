@@ -466,7 +466,7 @@ fn get_packed_r32(packed: u32) -> u32 { ((packed) << (24 - R32_SHIFT)) >> 24 }
 fn get_packed_g32(packed: u32) -> u32 { ((packed) << (24 - G32_SHIFT)) >> 24 }
 fn get_packed_b32(packed: u32) -> u32 { ((packed) << (24 - B32_SHIFT)) >> 24 }
 
-
+#[inline]
 fn packed_alpha(x: u32) -> u32 {
     x >> A32_SHIFT
 }
@@ -482,12 +482,14 @@ pub fn over(src: u32, dst: u32) -> u32 {
     src + (rb & mask) | (ag & !mask)
 }
 
+#[inline]
 pub fn alpha_to_alpha256(alpha: u32) -> u32 {
     alpha + 1
 }
 
 /** Calculates 256 - (value * alpha256) / 255 in range [0,256],
  *  for [0,255] value and [0,256] alpha256. */
+#[inline]
 fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
     let prod = 0xFFFF - value * alpha256;
     return (prod + (prod >> 8)) >> 8;
