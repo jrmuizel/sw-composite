@@ -409,6 +409,14 @@ pub fn fetch_bilinear_alpha<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed
     bilinear_interpolation_alpha(tl, tr, bl, br, dist_x, dist_y, alpha)
 }
 
+pub fn fetch_nearest<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed) -> u32 {
+    Fetch::get_pixel(image, fixed_to_int(x), fixed_to_int(y))
+}
+
+pub fn fetch_nearest_alpha<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed, alpha: Alpha256) -> u32 {
+    alpha_mul(Fetch::get_pixel(image, fixed_to_int(x), fixed_to_int(y)), alpha)
+}
+
 pub struct PointFixedPoint {
     pub x: Fixed,
     pub y: Fixed,
