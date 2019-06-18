@@ -372,7 +372,7 @@ fn fixed_to_int(x: Fixed) -> i32 {
 // to make this faster. Let's just do simplest
 // thing for now
 pub fn float_to_fixed(x: f32) -> Fixed {
-    (x * (1 << FIXED_FRACTION_BITS) as f32) as i32
+    ((x * (1 << FIXED_FRACTION_BITS) as f32) + 0.5) as i32
 }
 
 pub fn fetch_bilinear<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed) -> u32 {
