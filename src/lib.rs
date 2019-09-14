@@ -11,6 +11,22 @@ pub use blend::*;
 
 type Alpha256 = u32;
 
+/// A unpremultiplied color
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Color {
+    val: u32
+}
+
+impl Color {
+    pub fn new(a: u8, r: u8, g: u8, b: u8) -> Color {
+        Color { val:
+        ((a as u32) << A32_SHIFT) |
+        ((r as u32) << R32_SHIFT) |
+        ((g as u32) << G32_SHIFT) |
+        ((b as u32) << B32_SHIFT) }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Image<'a> {
     pub width: i32,
@@ -38,7 +54,7 @@ pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
 #[derive(Clone, Copy, Debug)]
 pub struct GradientStop {
     pub position: f32,
-    pub color: u32,
+    pub color: Color,
 }
 
 pub struct GradientSource {
@@ -166,7 +182,7 @@ impl Gradient {
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
 
-        let mut last_color = alpha_mul(stop.color, alpha);
+        let mut last_color = alpha_mul(stop.color.val, alpha);
         let mut last_pos = 0;
 
         let mut next_color = last_color;
@@ -185,13 +201,13 @@ impl Gradient {
                 if stop_idx >= self.stops.len() {
                     stop = &self.stops[self.stops.len() - 1];
                     next_pos = 255;
-                    next_color = alpha_mul(stop.color, alpha);
+                    next_color = alpha_mul(stop.color.val, alpha);
                     break;
                 } else {
                     stop = &self.stops[stop_idx];
                 }
                 next_pos = (255. * stop.position) as u32;
-                next_color = alpha_mul(stop.color, alpha);
+                next_color = alpha_mul(stop.color.val, alpha);
             }
             let inverse = (FIXED_ONE * 256) / (next_pos - last_pos);
             let mut t = 0;
