@@ -1,4 +1,4 @@
-mod blend;
+pub mod blend;
 
 const BILINEAR_INTERPOLATION_BITS: u32 = 4;
 
@@ -7,7 +7,6 @@ const R32_SHIFT: u32 = 16;
 const G32_SHIFT: u32 = 8;
 const B32_SHIFT: u32 = 0;
 
-pub use blend::*;
 
 type Alpha256 = u32;
 
@@ -569,6 +568,7 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
 }
 
 // Similar to over_in but includes an additional clip alpha value
+#[inline]
 pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
     let src_alpha = alpha_to_alpha256(mask);
     let src_alpha = alpha_mul_256(src_alpha, clip);
