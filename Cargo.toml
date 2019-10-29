@@ -5,5 +5,6 @@ authors = ["Jeff Muizelaar <jrmuizel@gmail.com>"]
 license = "BSD-3-Clause"
 description = "a collection of software compositing routines"
 documentation = "https://docs.rs/sw-composite"
+repository = "https://github.com/jrmuizel/sw-composite/"
 
 [dependencies]
