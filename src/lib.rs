@@ -571,7 +571,7 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
 #[inline]
 pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
     let src_alpha = alpha_to_alpha256(mask);
-    let src_alpha = alpha_mul_256(src_alpha, clip);
+    let src_alpha = alpha_to_alpha256(alpha_mul_256(clip, src_alpha));
     let dst_alpha = alpha_mul_inv256(packed_alpha(src), src_alpha);
 
     let mask = 0xFF00FF;
@@ -584,6 +584,12 @@ pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
 
     // we sum src and dst before reducing to 8 bit to avoid accumulating rounding errors
     return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
+}
+
+#[test]
+fn test_over_in() {
+    assert_eq!(over_in(0xff00ff00, 0xffff0000, 0xff), 0xff00ff00);
+    assert_eq!(over_in_in(0xff00ff00, 0xffff0000, 0xff, 0xff), 0xff00ff00);
 }
 
 pub fn alpha_lerp(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
