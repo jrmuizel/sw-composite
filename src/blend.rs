@@ -138,7 +138,7 @@ impl Blend for Xor {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = packed_alpha(src);
         let da = packed_alpha(dst);
-        let isa = 255 - da;
+        let isa = 255 - sa;
         let ida = 255 - da;
 
         return pack_argb32(sa + da - (muldiv255(sa, da) * 2),
