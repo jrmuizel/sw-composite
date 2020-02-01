@@ -166,6 +166,54 @@ impl Gradient {
         source
     }
 
+    /// evaluate the gradient for a particular
+    /// `t` directly
+    #[cfg(test)]
+    fn eval(&self, t: f32, spread: Spread) -> Color {
+        let t = match spread {
+            Spread::Pad => {
+                if t > 1. {
+                    1.
+                } else if t < 0. {
+                    0.
+                } else {
+                    t
+                }
+            }
+            Spread::Repeat => {
+                t % 1.
+            }
+            Spread::Reflect => {
+                let k = t % 2.;
+                if k > 1. {
+                    2. - k
+                } else {
+                    k
+                }
+            }
+        };
+
+        let mut stop_idx = 0;
+        let mut above = &self.stops[stop_idx];
+        while stop_idx < self.stops.len()-1 && t > above.position {
+            stop_idx += 1;
+            above = &self.stops[stop_idx]
+        }
+        let mut below = above;
+        if stop_idx > 0 && below.position > t {
+            below = &self.stops[stop_idx-1]
+        }
+        assert!((t < above.position && t > below.position) || above as *const GradientStop == below as *const GradientStop);
+        if above as *const GradientStop == below as *const GradientStop {
+            return above.color;
+        } else {
+            let diff = above.position - below.position;
+            let t = (t - below.position) / diff;
+            assert!(t <= 1.);
+            return Color {val: lerp(below.color.val, above.color.val, (t * 256. + 0.5) as u32)}
+        }
+    }
+
     pub fn make_two_circle_source(&self, c1x: f32,
                                   c1y: f32,
                                   r1: f32,
@@ -182,7 +230,6 @@ impl Gradient {
         let mut stop = &self.stops[stop_idx];
 
         let mut last_color = alpha_mul(stop.color.val, alpha);
-        let mut last_pos = 0;
 
         let mut next_color = last_color;
         let mut next_pos = (255. * stop.position) as u32;
@@ -208,10 +255,11 @@ impl Gradient {
                 next_pos = (255. * stop.position) as u32;
                 next_color = alpha_mul(stop.color.val, alpha);
             }
-            let inverse = (FIXED_ONE * 256) / (next_pos - last_pos);
+            let inverse = (FIXED_ONE * 256) / (next_pos - i);
             let mut t = 0;
             // XXX we could actually avoid doing any multiplications inside
             // this loop by accumulating (next_color - last_color)*inverse
+            // that's what Skia does
             while i <= next_pos {
                 // stops need to be represented in unpremultipled form otherwise we lose information
                 // that we need when lerping between colors
@@ -219,9 +267,53 @@ impl Gradient {
                 t += inverse;
                 i += 1;
             }
-            last_pos = next_pos;
         }
     }
+
+ 
+}
+
+#[test]
+fn test_gradient_eval() {
+    let white = Color { val: 0xffffffff };
+    let black = Color { val: 0 };
+
+    let g = Gradient{ stops: vec![GradientStop { position: 0.5, color: white }]};
+    assert!(g.eval(0., Spread::Pad) == white);
+    assert!(g.eval(1., Spread::Pad) == white);
+
+    let g = Gradient{ stops: vec![GradientStop { position: 0.5, color: white },
+                                            GradientStop { position: 1., color: black }]};
+    assert!(g.eval(0., Spread::Pad) == white);
+    assert!(g.eval(1., Spread::Pad) == black);
+    //assert_eq!(g.eval(0.75, Spread::Pad), black);
+
+    let g = Gradient{ stops: vec![GradientStop { position: 0.5, color: white },
+                                            GradientStop { position: 0.5, color: black }]};
+    assert_eq!(g.eval(0., Spread::Pad), white);
+    assert_eq!(g.eval(1., Spread::Pad), black);
+    assert_eq!(g.eval(0.5, Spread::Pad), white);
+
+    let g = Gradient {
+        stops: vec![
+            GradientStop {
+                position: 0.5,
+                color: Color::new(255, 255, 255, 255),
+            },
+            GradientStop {
+                position: 1.0,
+                color: Color::new(0, 0, 0, 0),
+            },
+        ],
+    };
+
+    assert_eq!(g.eval(-0.1, Spread::Pad), white);
+    assert_eq!(g.eval(1., Spread::Pad), black);
+
+    let mut lut = [0; 256];
+    g.build_lut(&mut lut, 256);
+    assert_eq!(lut[0], white.val);
+    assert_eq!(lut[255], black.val);
 }
 
 pub trait PixelFetch {
