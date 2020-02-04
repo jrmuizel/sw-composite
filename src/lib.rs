@@ -36,17 +36,29 @@ pub struct Image<'a> {
 /// t is 0..256
 #[inline]
 pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
-    // we can reduce this to two multiplies
-    // http://stereopsis.com/doubleblend.html
+    // this method is from http://stereopsis.com/doubleblend.html
     let mask = 0xff00ff;
-    let brb = ((b & 0xff00ff) * t) >> 8;
-    let bag = ((b >> 8) & 0xff00ff) * t;
-    let t = 256 - t;
-    let arb = ((a & 0xff00ff) * t) >> 8;
-    let aag = ((a >> 8) & 0xff00ff) * t;
-    let rb = arb + brb;
-    let ag = aag + bag;
-    return (rb & mask) | (ag & !mask);
+    let brb = b & 0xff00ff;
+    let bag = (b >> 8) & 0xff00ff;
+
+    let arb = a & 0xff00ff;
+    let aag = (a >> 8) & 0xff00ff;
+
+    let drb = brb.wrapping_sub(arb);
+    let dag = bag.wrapping_sub(aag);
+
+    let drb = drb.wrapping_mul(t) >> 8;
+    let dag = dag.wrapping_mul(t) >> 8;
+
+    let rb = arb + drb;
+    let ag = aag + dag;
+    return (rb & mask) | ((ag << 8) & !mask);
+}
+#[test]
+fn test_lerp() {
+    for i in 0..=256 {
+        assert_eq!(lerp(0xffffffff, 0xffffffff, i), 0xffffffff);
+    }
 }
 
 /// color is unpremultiplied argb
@@ -313,6 +325,7 @@ fn test_gradient_eval() {
     let mut lut = [0; 256];
     g.build_lut(&mut lut, 256);
     assert_eq!(lut[0], white.val);
+    assert_eq!(lut[1], white.val);
     assert_eq!(lut[255], black.val);
 }
 
