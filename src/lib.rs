@@ -695,7 +695,7 @@ pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
     unsafe {
         let mut len = src.len().min(dst.len());
         let mut src_ptr = src.as_ptr() as *const __m128i;
-        let mut dst_ptr = dst.as_ptr() as *mut __m128i;
+        let mut dst_ptr = dst.as_mut_ptr() as *mut __m128i;
 
         while len >= 4 {
             _mm_storeu_si128(dst_ptr, over_in_sse2(_mm_loadu_si128(src_ptr), _mm_loadu_si128(dst_ptr), alpha));
