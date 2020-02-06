@@ -678,6 +678,110 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
 }
 
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
+    for (dst, src) in dst.iter_mut().zip(src) {
+        *dst = over_in(*src, *dst, alpha as u32);
+    }
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
+    use std::arch::x86_64::{
+        _mm_loadu_si128,
+        _mm_storeu_si128,
+    };
+
+    unsafe {
+        let mut len = src.len().min(dst.len());
+        let mut src_ptr = src.as_ptr() as *const __m128i;
+        let mut dst_ptr = dst.as_ptr() as *mut __m128i;
+
+        while len >= 4 {
+            _mm_storeu_si128(dst_ptr, over_in_sse2(_mm_loadu_si128(src_ptr), _mm_loadu_si128(dst_ptr), alpha));
+            src_ptr = src_ptr.offset(1);
+            dst_ptr = dst_ptr.offset(1);
+            len -= 4;
+        }
+        let mut src_ptr = src_ptr as *const u32;
+        let mut dst_ptr = dst_ptr as *mut u32;
+        while len >= 1 {
+            *dst_ptr = over_in(*src_ptr, *dst_ptr, alpha);
+            src_ptr = src_ptr.offset(1);
+            dst_ptr = dst_ptr.offset(1);
+            len -= 1;
+        }
+    }
+}
+
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use std::arch::x86_64::__m128i;
+
+// derived from Skia's SkBlendARGB32_SSE2
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
+    use std::arch::x86_64::{
+        _mm_set1_epi16,
+        _mm_set1_epi32,
+        _mm_mullo_epi16,
+        _mm_add_epi16,
+        _mm_sub_epi32,
+        _mm_add_epi32,
+        _mm_srli_epi16,
+        _mm_shufflelo_epi16,
+        _mm_shufflehi_epi16,
+        _mm_srli_epi32,
+        _mm_and_si128,
+        _mm_andnot_si128,
+        _mm_or_si128,
+
+    };
+    #[allow(non_snake_case)]
+    pub const fn _MM_SHUFFLE(z: u32, y: u32, x: u32, w: u32) -> i32 {
+        ((z << 6) | (y << 4) | (x << 2) | w) as i32
+    }
+
+    unsafe {
+        let alpha = alpha_to_alpha256(alpha);
+
+        let src_scale = _mm_set1_epi16(alpha as i16);
+        // SkAlphaMulInv256(SkGetPackedA32(src), src_scale)
+        let mut dst_scale = _mm_srli_epi32(src, 24);
+        // High words in dst_scale are 0, so it's safe to multiply with 16-bit src_scale.
+        dst_scale = _mm_mullo_epi16(dst_scale, src_scale);
+        dst_scale = _mm_sub_epi32(_mm_set1_epi32(0xFFFF), dst_scale);
+        dst_scale = _mm_add_epi32(dst_scale, _mm_srli_epi32(dst_scale, 8));
+        dst_scale = _mm_srli_epi32(dst_scale, 8);
+        // Duplicate scales into 2x16-bit pattern per pixel.
+        dst_scale = _mm_shufflelo_epi16(dst_scale, _MM_SHUFFLE(2, 2, 0, 0));
+        dst_scale = _mm_shufflehi_epi16(dst_scale, _MM_SHUFFLE(2, 2, 0, 0));
+
+        let mask = _mm_set1_epi32(0x00FF00FF);
+
+        // Unpack the 16x8-bit source/destination into 2 8x16-bit splayed halves.
+        let mut src_rb = _mm_and_si128(mask, src);
+        let mut src_ag = _mm_srli_epi16(src, 8);
+        let mut dst_rb = _mm_and_si128(mask, dst);
+        let mut dst_ag = _mm_srli_epi16(dst, 8);
+
+        // Scale them.
+        src_rb = _mm_mullo_epi16(src_rb, src_scale);
+        src_ag = _mm_mullo_epi16(src_ag, src_scale);
+        dst_rb = _mm_mullo_epi16(dst_rb, dst_scale);
+        dst_ag = _mm_mullo_epi16(dst_ag, dst_scale);
+
+        // Add the scaled source and destination.
+        dst_rb = _mm_add_epi16(src_rb, dst_rb);
+        dst_ag = _mm_add_epi16(src_ag, dst_ag);
+
+        // Unsplay the halves back together.
+        dst_rb = _mm_srli_epi16(dst_rb, 8);
+        dst_ag = _mm_andnot_si128(mask, dst_ag);
+        return _mm_or_si128(dst_rb, dst_ag);
+    }
+}
+
 // Similar to over_in but includes an additional clip alpha value
 #[inline]
 pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
@@ -700,6 +804,9 @@ pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
 #[test]
 fn test_over_in() {
     assert_eq!(over_in(0xff00ff00, 0xffff0000, 0xff), 0xff00ff00);
+    let mut dst = [0xffff0000, 0, 0, 0];
+    over_in_row(&[0xff00ff00, 0, 0, 0], &mut dst, 0xff);
+    assert_eq!(dst[0], 0xff00ff00);
     assert_eq!(over_in_in(0xff00ff00, 0xffff0000, 0xff, 0xff), 0xff00ff00);
 }
 
