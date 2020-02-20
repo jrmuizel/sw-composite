@@ -678,15 +678,21 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sse2")))]
 pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
     for (dst, src) in dst.iter_mut().zip(src) {
         *dst = over_in(*src, *dst, alpha as u32);
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sse2"))]
 pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{
+        _mm_loadu_si128,
+        _mm_storeu_si128,
+    };
+    #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         _mm_loadu_si128,
         _mm_storeu_si128,
@@ -714,13 +720,32 @@ pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
     }
 }
 
-
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(target_arch = "x86")]
+use std::arch::x86::__m128i;
+#[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::__m128i;
 
 // derived from Skia's SkBlendARGB32_SSE2
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sse2"))]
 fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{
+        _mm_set1_epi16,
+        _mm_set1_epi32,
+        _mm_mullo_epi16,
+        _mm_add_epi16,
+        _mm_sub_epi32,
+        _mm_add_epi32,
+        _mm_srli_epi16,
+        _mm_shufflelo_epi16,
+        _mm_shufflehi_epi16,
+        _mm_srli_epi32,
+        _mm_and_si128,
+        _mm_andnot_si128,
+        _mm_or_si128,
+
+    };
+    #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::{
         _mm_set1_epi16,
         _mm_set1_epi32,
