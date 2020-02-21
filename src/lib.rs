@@ -54,6 +54,7 @@ pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
     let ag = aag + dag;
     return (rb & mask) | ((ag << 8) & !mask);
 }
+#[cfg(test)]
 #[test]
 fn test_lerp() {
     for i in 0..=256 {
@@ -285,6 +286,7 @@ impl Gradient {
  
 }
 
+#[cfg(test)]
 #[test]
 fn test_gradient_eval() {
     let white = Color { val: 0xffffffff };
@@ -678,6 +680,11 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
 }
 
+#[cfg(target_arch = "x86")]
+use std::arch::x86::{self as x86_intrinsics, __m128i};
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::{self as x86_intrinsics, __m128i};
+
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sse2")))]
 pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
     for (dst, src) in dst.iter_mut().zip(src) {
@@ -687,13 +694,7 @@ pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sse2"))]
 pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
-    #[cfg(target_arch = "x86")]
-    use std::arch::x86::{
-        _mm_loadu_si128,
-        _mm_storeu_si128,
-    };
-    #[cfg(target_arch = "x86_64")]
-    use std::arch::x86_64::{
+    use x86_intrinsics::{
         _mm_loadu_si128,
         _mm_storeu_si128,
     };
@@ -720,16 +721,10 @@ pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
     }
 }
 
-#[cfg(target_arch = "x86")]
-use std::arch::x86::__m128i;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::__m128i;
-
 // derived from Skia's SkBlendARGB32_SSE2
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sse2"))]
 fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
-    #[cfg(target_arch = "x86")]
-    use std::arch::x86::{
+    use x86_intrinsics::{
         _mm_set1_epi16,
         _mm_set1_epi32,
         _mm_mullo_epi16,
@@ -743,25 +738,8 @@ fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
         _mm_and_si128,
         _mm_andnot_si128,
         _mm_or_si128,
-
     };
-    #[cfg(target_arch = "x86_64")]
-    use std::arch::x86_64::{
-        _mm_set1_epi16,
-        _mm_set1_epi32,
-        _mm_mullo_epi16,
-        _mm_add_epi16,
-        _mm_sub_epi32,
-        _mm_add_epi32,
-        _mm_srli_epi16,
-        _mm_shufflelo_epi16,
-        _mm_shufflehi_epi16,
-        _mm_srli_epi32,
-        _mm_and_si128,
-        _mm_andnot_si128,
-        _mm_or_si128,
 
-    };
     #[allow(non_snake_case)]
     pub const fn _MM_SHUFFLE(z: u32, y: u32, x: u32, w: u32) -> i32 {
         ((z << 6) | (y << 4) | (x << 2) | w) as i32
@@ -826,6 +804,7 @@ pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
     return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
 }
 
+#[cfg(test)]
 #[test]
 fn test_over_in() {
     assert_eq!(over_in(0xff00ff00, 0xffff0000, 0xff), 0xff00ff00);
