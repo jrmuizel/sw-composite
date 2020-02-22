@@ -92,6 +92,7 @@ pub enum Spread {
     Repeat,
 }
 
+/// maps `x` to 0..255 according to `spread`
 fn apply_spread(mut x: i32, spread: Spread) -> i32 {
     match spread {
         Spread::Pad => {
