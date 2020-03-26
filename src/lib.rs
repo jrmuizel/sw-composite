@@ -24,6 +24,35 @@ impl Color {
         ((g as u32) << G32_SHIFT) |
         ((b as u32) << B32_SHIFT) }
     }
+
+    /// Get the alpha component.
+    pub fn a(self) -> u8 {
+        (self.val >> A32_SHIFT & 0xFF) as u8
+    }
+
+    /// Get the red component.
+    pub fn r(self) -> u8 {
+        (self.val >> R32_SHIFT & 0xFF) as u8
+    }
+
+    /// Get the green component.
+    pub fn g(self) -> u8 {
+        (self.val >> G32_SHIFT & 0xFF) as u8
+    }
+
+    /// Get the blue component.
+    pub fn b(self) -> u8 {
+        (self.val >> B32_SHIFT & 0xFF) as u8
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_color_argb() {
+    assert_eq!(Color::new(1, 2, 3, 4).a(), 1);
+    assert_eq!(Color::new(1, 2, 3, 4).r(), 2);
+    assert_eq!(Color::new(1, 2, 3, 4).g(), 3);
+    assert_eq!(Color::new(1, 2, 3, 4).b(), 4);
 }
 
 #[derive(Clone, Copy)]
