@@ -667,7 +667,7 @@ pub fn muldiv255(a: u32, b: u32) -> u32 {
     /* The deriviation for this formula can be
      * found in "Three Wrongs Make a Right" by Jim Blinn.*/
     let tmp = a * b + 128;
-    ((tmp + (tmp >> 8)) >> 8)
+    (tmp + (tmp >> 8)) >> 8
 }
 
 /** Calculates floor(a/255 + 0.5) */
@@ -675,7 +675,7 @@ pub fn div255(a: u32) -> u32 {
     /* The deriviation for this formula can be
      * found in "Three Wrongs Make a Right" by Jim Blinn.*/
     let tmp = a + 128;
-    ((tmp + (tmp >> 8)) >> 8)
+    (tmp + (tmp >> 8)) >> 8
 }
 
 #[inline]
