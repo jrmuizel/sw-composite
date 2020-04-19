@@ -505,6 +505,7 @@ fn bilinear_interpolation_alpha(
 
 const FIXED_FRACTION_BITS: u32 = 16;
 pub const FIXED_ONE: i32 = 1 << FIXED_FRACTION_BITS;
+const FIXED_HALF: i32 = FIXED_ONE >> 1;
 
 fn bilinear_weight(x: Fixed) -> u32 {
     // discard the unneeded bits of precision
@@ -562,11 +563,11 @@ pub fn fetch_bilinear_alpha<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed
 }
 
 pub fn fetch_nearest<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed) -> u32 {
-    Fetch::get_pixel(image, fixed_to_int(x), fixed_to_int(y))
+    Fetch::get_pixel(image, fixed_to_int(x + FIXED_HALF), fixed_to_int(y + FIXED_HALF))
 }
 
 pub fn fetch_nearest_alpha<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed, alpha: Alpha256) -> u32 {
-    alpha_mul(Fetch::get_pixel(image, fixed_to_int(x), fixed_to_int(y)), alpha)
+    alpha_mul(Fetch::get_pixel(image, fixed_to_int(x + FIXED_HALF), fixed_to_int(y + FIXED_HALF)), alpha)
 }
 
 pub struct PointFixedPoint {
