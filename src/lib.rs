@@ -164,12 +164,18 @@ impl GradientSource {
         self.lut[apply_spread(lx, spread) as usize]
     }
 }
-
+// This is called TwoPointConical in Skia
 impl TwoCircleRadialGradientSource {
     pub fn eval(&self, x: u16, y: u16, spread: Spread) -> u32 {
         let p = self.matrix.transform(x, y);
         // XXX: this is slow and bad
-        // the derivation is from pixman
+        // the derivation is from pixman radial_get_scanline_narrow
+        // " Mathematically the gradient can be defined as the family of circles
+        //
+        //    ((1-t)·c₁ + t·(c₂), (1-t)·r₁ + t·r₂)
+        //
+        // excluding those circles whose radius would be < 0."
+        // i.e. anywhere where r < 0 we return 0 (transparent black).
         let px = p.x as f32 / 65536.;
         let py = p.y as f32 / 65536.;
         let cdx = self.c2x - self.c1x;
@@ -180,16 +186,25 @@ impl TwoCircleRadialGradientSource {
         let a = cdx*cdx + cdy*cdy - dr*dr;
         let b = pdx*cdx + pdy*cdy + self.r1*dr;
         let c = pdx*pdx + pdy*pdy - self.r1*self.r1;
-        let t1 = (b + (b*b - a*c).sqrt())/a;
-        let t2 = (b - (b*b - a*c).sqrt())/a;
+        let discr = b*b - a*c;
 
         let t = if a == 0. {
-            0.
+            let t =  1./2. * (c / b);
+            if self.r1 * (1. - t) + t * self.r2 < 0. {
+                return 0;
+            }
+            t
         } else {
-            if t1 > t2 {
-                t1
+            if discr < 0. {
+                return 0;
             } else {
-                t2
+                let t1 = (b + discr.sqrt())/a;
+                let t2 = (b - discr.sqrt())/a;
+                if t1 > t2 {
+                    t1
+                } else {
+                    t2
+                }
             }
         };
 
