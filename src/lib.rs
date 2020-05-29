@@ -298,7 +298,7 @@ impl Gradient {
         const FIXED_ONE: u32 = 1 << FIXED_SHIFT;
         const FIXED_HALF: u32 = FIXED_ONE >> 1;
 
-        while i <= 255 {
+        while i < 255 {
             while next_pos <= i {
                 stop_idx += 1;
                 last_color = next_color;
@@ -323,12 +323,16 @@ impl Gradient {
                 // that we need when lerping between colors
                 lut[i as usize] = premultiply(lerp(last_color, next_color, (t + FIXED_HALF) >> FIXED_SHIFT));
                 t += inverse;
+
                 i += 1;
             }
         }
+        // we manually assign the last stop to ensure that it ends up in the last spot even
+        // if there's a stop very close to the end. This also avoids a divide-by-zero when
+        // calculating inverse
+        lut[255] = premultiply(alpha_mul(self.stops[self.stops.len() - 1].color.val, alpha));
     }
 
- 
 }
 
 #[cfg(test)]
@@ -373,6 +377,22 @@ fn test_gradient_eval() {
     g.build_lut(&mut lut, 256);
     assert_eq!(lut[0], white.val);
     assert_eq!(lut[1], white.val);
+    assert_eq!(lut[255], black.val);
+}
+
+#[cfg(test)]
+#[test]
+fn test_gradient_lut() {
+    let white = Color { val: 0xffffffff };
+    let black = Color { val: 0 };
+
+    let g = Gradient{ stops: vec![GradientStop { position: 0.0, color: white },
+                                            GradientStop { position: 0.999999761, color: white },
+                                            GradientStop { position: 1., color: black },
+                                            ]};
+
+    let mut lut = [0; 256];
+    g.build_lut(&mut lut, 256);
     assert_eq!(lut[255], black.val);
 }
 
