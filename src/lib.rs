@@ -10,39 +10,38 @@ const B32_SHIFT: u32 = 0;
 
 type Alpha256 = u32;
 
-/// A unpremultiplied color
+/// A unpremultiplied color.
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub struct Color {
-    val: u32
-}
+pub struct Color(u32);
 
 impl Color {
     pub fn new(a: u8, r: u8, g: u8, b: u8) -> Color {
-        Color { val:
-        ((a as u32) << A32_SHIFT) |
-        ((r as u32) << R32_SHIFT) |
-        ((g as u32) << G32_SHIFT) |
-        ((b as u32) << B32_SHIFT) }
+        Color(
+            ((a as u32) << A32_SHIFT) |
+            ((r as u32) << R32_SHIFT) |
+            ((g as u32) << G32_SHIFT) |
+            ((b as u32) << B32_SHIFT)
+        )
     }
 
     /// Get the alpha component.
     pub fn a(self) -> u8 {
-        (self.val >> A32_SHIFT & 0xFF) as u8
+        (self.0 >> A32_SHIFT & 0xFF) as u8
     }
 
     /// Get the red component.
     pub fn r(self) -> u8 {
-        (self.val >> R32_SHIFT & 0xFF) as u8
+        (self.0 >> R32_SHIFT & 0xFF) as u8
     }
 
     /// Get the green component.
     pub fn g(self) -> u8 {
-        (self.val >> G32_SHIFT & 0xFF) as u8
+        (self.0 >> G32_SHIFT & 0xFF) as u8
     }
 
     /// Get the blue component.
     pub fn b(self) -> u8 {
-        (self.val >> B32_SHIFT & 0xFF) as u8
+        (self.0 >> B32_SHIFT & 0xFF) as u8
     }
 }
 
@@ -81,8 +80,9 @@ pub fn lerp(a: u32, b: u32, t: u32) -> u32 {
 
     let rb = arb + drb;
     let ag = aag + dag;
-    return (rb & mask) | ((ag << 8) & !mask);
+    (rb & mask) | ((ag << 8) & !mask)
 }
+
 #[cfg(test)]
 #[test]
 fn test_lerp() {
@@ -91,7 +91,6 @@ fn test_lerp() {
     }
 }
 
-/// color is unpremultiplied argb
 #[derive(Clone, Copy, Debug)]
 pub struct GradientStop {
     pub position: f32,
@@ -122,26 +121,26 @@ pub enum Spread {
 }
 
 /// maps `x` to 0..255 according to `spread`
-fn apply_spread(mut x: i32, spread: Spread) -> i32 {
+fn apply_spread(x: i32, spread: Spread) -> i32 {
     match spread {
         Spread::Pad => {
-            if x >= 255 {
-                x = 255;
-            }
-            if x < 0 {
-                x = 0;
+            if x > 255 {
+                255
+            } else if x < 0 {
+                0
+            } else {
+                x
             }
         }
         Spread::Repeat => {
-            x &= 255;
+            x & 255
         }
         Spread::Reflect => {
             // a trick from skia to reflect the bits. 256 -> 255
             let sign = (x << 23) >> 31;
-            x = (x ^ sign) & 255;
+            (x ^ sign) & 255
         }
     }
-    x
 }
 
 impl GradientSource {
@@ -261,24 +260,33 @@ impl Gradient {
         if stop_idx > 0 && below.position > t {
             below = &self.stops[stop_idx-1]
         }
-        assert!((t < above.position && t > below.position) || above as *const GradientStop == below as *const GradientStop);
+        assert!((t < above.position && t > below.position) ||
+            above as *const GradientStop == below as *const GradientStop);
+
         if above as *const GradientStop == below as *const GradientStop {
-            return above.color;
+            above.color
         } else {
             let diff = above.position - below.position;
             let t = (t - below.position) / diff;
             assert!(t <= 1.);
-            return Color {val: lerp(below.color.val, above.color.val, (t * 256. + 0.5) as u32)}
+            Color(lerp(below.color.0, above.color.0, (t * 256. + 0.5) as u32))
         }
     }
 
-    pub fn make_two_circle_source(&self, c1x: f32,
-                                  c1y: f32,
-                                  r1: f32,
-                                  c2x: f32,
-                                  c2y: f32,
-                                  r2: f32, matrix: &MatrixFixedPoint, alpha: u32) -> Box<TwoCircleRadialGradientSource> {
-        let mut source = Box::new(TwoCircleRadialGradientSource { c1x, c1y, r1, c2x, c2y, r2, matrix: (*matrix).clone(), lut: [0; 256] });
+    pub fn make_two_circle_source(
+        &self,
+        c1x: f32,
+        c1y: f32,
+        r1: f32,
+        c2x: f32,
+        c2y: f32,
+        r2: f32,
+        matrix: &MatrixFixedPoint,
+        alpha: u32,
+    ) -> Box<TwoCircleRadialGradientSource> {
+        let mut source = Box::new(TwoCircleRadialGradientSource {
+            c1x, c1y, r1, c2x, c2y, r2, matrix: matrix.clone(), lut: [0; 256]
+        });
         self.build_lut(&mut source.lut, alpha_to_alpha256(alpha));
         source
     }
@@ -287,7 +295,7 @@ impl Gradient {
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
 
-        let mut last_color = alpha_mul(stop.color.val, alpha);
+        let mut last_color = alpha_mul(stop.color.0, alpha);
 
         let mut next_color = last_color;
         let mut next_pos = (255. * stop.position) as u32;
@@ -305,13 +313,13 @@ impl Gradient {
                 if stop_idx >= self.stops.len() {
                     stop = &self.stops[self.stops.len() - 1];
                     next_pos = 255;
-                    next_color = alpha_mul(stop.color.val, alpha);
+                    next_color = alpha_mul(stop.color.0, alpha);
                     break;
                 } else {
                     stop = &self.stops[stop_idx];
                 }
                 next_pos = (255. * stop.position) as u32;
-                next_color = alpha_mul(stop.color.val, alpha);
+                next_color = alpha_mul(stop.color.0, alpha);
             }
             let inverse = (FIXED_ONE * 256) / (next_pos - i);
             let mut t = 0;
@@ -330,7 +338,7 @@ impl Gradient {
         // we manually assign the last stop to ensure that it ends up in the last spot even
         // if there's a stop very close to the end. This also avoids a divide-by-zero when
         // calculating inverse
-        lut[255] = premultiply(alpha_mul(self.stops[self.stops.len() - 1].color.val, alpha));
+        lut[255] = premultiply(alpha_mul(self.stops[self.stops.len() - 1].color.0, alpha));
     }
 
 }
@@ -338,21 +346,21 @@ impl Gradient {
 #[cfg(test)]
 #[test]
 fn test_gradient_eval() {
-    let white = Color { val: 0xffffffff };
-    let black = Color { val: 0 };
+    let white = Color(0xffffffff);
+    let black = Color(0x00000000);
 
     let g = Gradient{ stops: vec![GradientStop { position: 0.5, color: white }]};
-    assert!(g.eval(0., Spread::Pad) == white);
-    assert!(g.eval(1., Spread::Pad) == white);
+    assert_eq!(g.eval(0., Spread::Pad), white);
+    assert_eq!(g.eval(1., Spread::Pad), white);
 
     let g = Gradient{ stops: vec![GradientStop { position: 0.5, color: white },
-                                            GradientStop { position: 1., color: black }]};
-    assert!(g.eval(0., Spread::Pad) == white);
-    assert!(g.eval(1., Spread::Pad) == black);
+                                  GradientStop { position: 1., color: black }]};
+    assert_eq!(g.eval(0., Spread::Pad), white);
+    assert_eq!(g.eval(1., Spread::Pad), black);
     //assert_eq!(g.eval(0.75, Spread::Pad), black);
 
     let g = Gradient{ stops: vec![GradientStop { position: 0.5, color: white },
-                                            GradientStop { position: 0.5, color: black }]};
+                                  GradientStop { position: 0.5, color: black }]};
     assert_eq!(g.eval(0., Spread::Pad), white);
     assert_eq!(g.eval(1., Spread::Pad), black);
     assert_eq!(g.eval(0.5, Spread::Pad), white);
@@ -375,25 +383,28 @@ fn test_gradient_eval() {
 
     let mut lut = [0; 256];
     g.build_lut(&mut lut, 256);
-    assert_eq!(lut[0], white.val);
-    assert_eq!(lut[1], white.val);
-    assert_eq!(lut[255], black.val);
+    assert_eq!(lut[0], white.0);
+    assert_eq!(lut[1], white.0);
+    assert_eq!(lut[255], black.0);
 }
 
 #[cfg(test)]
 #[test]
 fn test_gradient_lut() {
-    let white = Color { val: 0xffffffff };
-    let black = Color { val: 0 };
+    let white = Color(0xffffffff);
+    let black = Color(0x00000000);
 
-    let g = Gradient{ stops: vec![GradientStop { position: 0.0, color: white },
-                                            GradientStop { position: 0.999999761, color: white },
-                                            GradientStop { position: 1., color: black },
-                                            ]};
+    let g = Gradient {
+        stops: vec![
+            GradientStop { position: 0.0, color: white },
+            GradientStop { position: 0.999999761, color: white },
+            GradientStop { position: 1., color: black },
+        ]
+    };
 
     let mut lut = [0; 256];
     g.build_lut(&mut lut, 256);
-    assert_eq!(lut[255], black.val);
+    assert_eq!(lut[255], black.0);
 }
 
 pub trait PixelFetch {
@@ -418,7 +429,7 @@ impl PixelFetch for PadFetch {
             y = bitmap.height - 1;
         }
 
-        return bitmap.data[(y * bitmap.width + x) as usize];
+        bitmap.data[(y * bitmap.width + x) as usize]
     }
 }
 
@@ -438,12 +449,12 @@ impl PixelFetch for RepeatFetch {
             y = y + bitmap.height;
         }
 
-        return bitmap.data[(y * bitmap.width + x) as usize];
+        bitmap.data[(y * bitmap.width + x) as usize]
     }
 }
 
 
-/* Inspired by Filter_32_opaque from Skia */
+// Inspired by Filter_32_opaque from Skia.
 fn bilinear_interpolation(
     tl: u32,
     tr: u32,
@@ -463,10 +474,10 @@ fn bilinear_interpolation(
     disty <<= 4 - BILINEAR_INTERPOLATION_BITS;
 
     distxy = distx * disty;
-    distxiy = (distx << 4) - distxy; /* distx * (16 - disty) */
-    distixy = (disty << 4) - distxy; /* disty * (16 - distx) */
+    distxiy = (distx << 4) - distxy; // distx * (16 - disty)
+    distixy = (disty << 4) - distxy; // disty * (16 - distx)
 
-    /* (16 - distx) * (16 - disty) */
+    // (16 - distx) * (16 - disty)
     // The intermediate calculation can underflow so we use
     // wrapping arithmetic to let the compiler know that it's ok
     distixiy = (16u32 * 16)
@@ -489,7 +500,7 @@ fn bilinear_interpolation(
     ((lo >> 8) & 0xff00ff) | (hi & !0xff00ff)
 }
 
-/* Inspired by Filter_32_alpha from Skia */
+// Inspired by Filter_32_alpha from Skia.
 fn bilinear_interpolation_alpha(
     tl: u32,
     tr: u32,
@@ -510,9 +521,9 @@ fn bilinear_interpolation_alpha(
     disty <<= 4 - BILINEAR_INTERPOLATION_BITS;
 
     distxy = distx * disty;
-    distxiy = (distx << 4) - distxy; /* distx * (16 - disty) */
-    distixy = (disty << 4) - distxy; /* disty * (16 - distx) */
-     /* (16 - distx) * (16 - disty) */
+    distxiy = (distx << 4) - distxy; // distx * (16 - disty)
+    distixy = (disty << 4) - distxy; // disty * (16 - distx)
+    // (16 - distx) * (16 - disty)
     // The intermediate calculation can underflow so we use
     // wrapping arithmetic to let the compiler know that it's ok
     distixiy = (16u32 * 16)
@@ -652,9 +663,7 @@ fn pack_argb32(a: u32, r: u32, g: u32, b: u32) -> u32 {
     debug_assert!(r <= a);
     debug_assert!(g <= a);
     debug_assert!(b <= a);
-
-    return (a << A32_SHIFT) | (r << R32_SHIFT) |
-        (g << G32_SHIFT) | (b << B32_SHIFT);
+    (a << A32_SHIFT) | (r << R32_SHIFT) | (g << G32_SHIFT) | (b << B32_SHIFT)
 }
 
 fn get_packed_a32(packed: u32) -> u32 { ((packed) << (24 - A32_SHIFT)) >> 24 }
@@ -683,33 +692,33 @@ pub fn alpha_to_alpha256(alpha: u32) -> u32 {
     alpha + 1
 }
 
-/** Calculates 256 - (value * alpha256) / 255 in range [0,256],
- *  for [0,255] value and [0,256] alpha256. */
+// Calculates 256 - (value * alpha256) / 255 in range [0,256],
+// for [0,255] value and [0,256] alpha256.
 #[inline]
 fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
     let prod = 0xFFFF - value * alpha256;
-    return (prod + (prod >> 8)) >> 8;
+    (prod + (prod >> 8)) >> 8
 }
 
-/** Calculates (value * alpha256) / 255 in range [0,256],
- *  for [0,255] value and [0,256] alpha256. */
+// Calculates (value * alpha256) / 255 in range [0,256],
+// for [0,255] value and [0,256] alpha256.
 fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
     let prod = value * alpha256;
-    return (prod + (prod >> 8)) >> 8;
+    (prod + (prod >> 8)) >> 8
 }
 
-/** Calculates floor(a*b/255 + 0.5) */
+// Calculates floor(a*b/255 + 0.5)
 pub fn muldiv255(a: u32, b: u32) -> u32 {
-    /* The deriviation for this formula can be
-     * found in "Three Wrongs Make a Right" by Jim Blinn.*/
+    // The deriviation for this formula can be
+    // found in "Three Wrongs Make a Right" by Jim Blinn.
     let tmp = a * b + 128;
     (tmp + (tmp >> 8)) >> 8
 }
 
-/** Calculates floor(a/255 + 0.5) */
+// Calculates floor(a/255 + 0.5)
 pub fn div255(a: u32) -> u32 {
-    /* The deriviation for this formula can be
-     * found in "Three Wrongs Make a Right" by Jim Blinn.*/
+    // The deriviation for this formula can be
+    // found in "Three Wrongs Make a Right" by Jim Blinn.
     let tmp = a + 128;
     (tmp + (tmp >> 8)) >> 8
 }
@@ -721,7 +730,7 @@ pub fn alpha_mul(x: u32, a: Alpha256) -> u32 {
     let src_rb = ((x & mask) * a) >> 8;
     let src_ag = ((x >> 8) & mask) * a;
 
-    return (src_rb & mask) | (src_ag & !mask)
+    (src_rb & mask) | (src_ag & !mask)
 }
 
 // This approximates the division by 255 using a division by 256.
@@ -743,7 +752,7 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     let dst_ag = ((dst >> 8) & mask) * dst_alpha;
 
     // we sum src and dst before reducing to 8 bit to avoid accumulating rounding errors
-    return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
+    (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask)
 }
 
 #[cfg(target_arch = "x86")]
@@ -847,7 +856,7 @@ fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
         // Unsplay the halves back together.
         dst_rb = _mm_srli_epi16(dst_rb, 8);
         dst_ag = _mm_andnot_si128(mask, dst_ag);
-        return _mm_or_si128(dst_rb, dst_ag);
+        _mm_or_si128(dst_rb, dst_ag)
     }
 }
 
@@ -867,7 +876,7 @@ pub fn over_in_in(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
     let dst_ag = ((dst >> 8) & mask) * dst_alpha;
 
     // we sum src and dst before reducing to 8 bit to avoid accumulating rounding errors
-    return (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask);
+    (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask)
 }
 
 #[cfg(test)]
@@ -882,5 +891,5 @@ fn test_over_in() {
 
 pub fn alpha_lerp(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
     let alpha = alpha_mul_256(alpha_to_alpha256(mask), clip);
-    return lerp(src, dst, alpha);
+    lerp(src, dst, alpha)
 }

@@ -102,13 +102,12 @@ impl Blend for SrcAtop {
         let da = packed_alpha(dst);
         let isa = 255 - sa;
 
-        return pack_argb32(da,
-                           muldiv255(da, get_packed_r32(src)) +
-                               muldiv255(isa, get_packed_r32(dst)),
-                           muldiv255(da, get_packed_g32(src)) +
-                               muldiv255(isa, get_packed_g32(dst)),
-                           muldiv255(da, get_packed_b32(src)) +
-                               muldiv255(isa, get_packed_b32(dst)));
+        pack_argb32(
+            da,
+            muldiv255(da, get_packed_r32(src)) + muldiv255(isa, get_packed_r32(dst)),
+            muldiv255(da, get_packed_g32(src)) + muldiv255(isa, get_packed_g32(dst)),
+            muldiv255(da, get_packed_b32(src)) + muldiv255(isa, get_packed_b32(dst))
+        )
     }
 }
 
@@ -121,13 +120,12 @@ impl Blend for DstAtop {
         let da = packed_alpha(dst);
         let ida = 255 - da;
 
-        return pack_argb32(sa,
-                           muldiv255(ida, get_packed_r32(src)) +
-                               muldiv255(sa, get_packed_r32(dst)),
-                           muldiv255(ida, get_packed_g32(src)) +
-                               muldiv255(sa, get_packed_g32(dst)),
-                           muldiv255(ida, get_packed_b32(src)) +
-                               muldiv255(sa, get_packed_b32(dst)));
+        pack_argb32(
+            sa,
+            muldiv255(ida, get_packed_r32(src)) + muldiv255(sa, get_packed_r32(dst)),
+            muldiv255(ida, get_packed_g32(src)) + muldiv255(sa, get_packed_g32(dst)),
+            muldiv255(ida, get_packed_b32(src)) + muldiv255(sa, get_packed_b32(dst))
+        )
     }
 }
 
@@ -141,13 +139,12 @@ impl Blend for Xor {
         let isa = 255 - sa;
         let ida = 255 - da;
 
-        return pack_argb32(sa + da - (muldiv255(sa, da) * 2),
-                           muldiv255(ida, get_packed_r32(src)) +
-                               muldiv255(isa, get_packed_r32(dst)),
-                           muldiv255(ida, get_packed_g32(src)) +
-                               muldiv255(isa, get_packed_g32(dst)),
-                           muldiv255(ida, get_packed_b32(src)) +
-                               muldiv255(isa, get_packed_b32(dst)));
+        pack_argb32(
+            sa + da - (muldiv255(sa, da) * 2),
+            muldiv255(ida, get_packed_r32(src)) + muldiv255(isa, get_packed_r32(dst)),
+            muldiv255(ida, get_packed_g32(src)) + muldiv255(isa, get_packed_g32(dst)),
+            muldiv255(ida, get_packed_b32(src)) + muldiv255(isa, get_packed_b32(dst))
+        )
     }
 }
 
@@ -167,10 +164,12 @@ pub struct Add;
 impl Blend for Add {
     #[inline]
     fn blend(src: u32, dst: u32) -> u32 {
-        pack_argb32(saturated_add(get_packed_a32(src), get_packed_a32(dst)),
-                    saturated_add(get_packed_r32(src), get_packed_r32(dst)),
-                    saturated_add(get_packed_g32(src), get_packed_g32(dst)),
-                    saturated_add(get_packed_b32(src), get_packed_b32(dst)))
+        pack_argb32(
+            saturated_add(get_packed_a32(src), get_packed_a32(dst)),
+            saturated_add(get_packed_r32(src), get_packed_r32(dst)),
+            saturated_add(get_packed_g32(src), get_packed_g32(dst)),
+            saturated_add(get_packed_b32(src), get_packed_b32(dst))
+        )
     }
 }
 
@@ -187,10 +186,12 @@ impl Blend for Multiply {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src) as i32;
         let da = get_packed_a32(dst) as i32;
-        pack_argb32(srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
-                    blendfunc_multiply_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
-                    blendfunc_multiply_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
-                    blendfunc_multiply_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
+        pack_argb32(
+            srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
+            blendfunc_multiply_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+            blendfunc_multiply_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+            blendfunc_multiply_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da)
+        )
     }
 }
 
@@ -202,20 +203,22 @@ pub struct Screen;
 
 impl Blend for Screen {
     fn blend(src: u32, dst: u32) -> u32 {
-        pack_argb32(srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
-                    srcover_byte(get_packed_r32(src), get_packed_r32(dst)),
-                    srcover_byte(get_packed_g32(src), get_packed_g32(dst)),
-                    srcover_byte(get_packed_b32(src), get_packed_b32(dst)))
+        pack_argb32(
+            srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
+            srcover_byte(get_packed_r32(src), get_packed_r32(dst)),
+            srcover_byte(get_packed_g32(src), get_packed_g32(dst)),
+            srcover_byte(get_packed_b32(src), get_packed_b32(dst))
+        )
     }
 }
 
 fn clamp_div255round(prod: i32) -> u32 {
     if prod <= 0 {
-        return 0;
+        0
     } else if prod >= 255 * 255 {
-        return 255;
+        255
     } else {
-        return div255(prod as u32);
+        div255(prod as u32)
     }
 }
 
@@ -236,10 +239,12 @@ impl Blend for Overlay {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src);
         let da = get_packed_a32(dst);
-        pack_argb32(srcover_byte(sa, da),
-                    overlay_byte(get_packed_r32(src), get_packed_r32(dst), sa, da),
-                    overlay_byte(get_packed_g32(src), get_packed_g32(dst), sa, da),
-                    overlay_byte(get_packed_b32(src), get_packed_b32(dst), sa, da))
+        pack_argb32(
+            srcover_byte(sa, da),
+            overlay_byte(get_packed_r32(src), get_packed_r32(dst), sa, da),
+            overlay_byte(get_packed_g32(src), get_packed_g32(dst), sa, da),
+            overlay_byte(get_packed_b32(src), get_packed_b32(dst), sa, da)
+        )
     }
 }
 
@@ -248,10 +253,10 @@ fn darken_byte(sc: u32, dc: u32, sa: u32, da: u32) -> u32 {
     let ds = dc * sa;
     if sd < ds {
         // srcover
-        return sc + dc - div255(ds);
+        sc + dc - div255(ds)
     } else {
         // dstover
-        return dc + sc - div255(sd);
+        dc + sc - div255(sd)
     }
 }
 
@@ -261,10 +266,12 @@ impl Blend for Darken {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src);
         let da = get_packed_a32(dst);
-        pack_argb32(srcover_byte(sa, da),
-                    darken_byte(get_packed_r32(src), get_packed_r32(dst), sa, da),
-                    darken_byte(get_packed_g32(src), get_packed_g32(dst), sa, da),
-                    darken_byte(get_packed_b32(src), get_packed_b32(dst), sa, da))
+        pack_argb32(
+            srcover_byte(sa, da),
+            darken_byte(get_packed_r32(src), get_packed_r32(dst), sa, da),
+            darken_byte(get_packed_g32(src), get_packed_g32(dst), sa, da),
+            darken_byte(get_packed_b32(src), get_packed_b32(dst), sa, da)
+        )
     }
 }
 
@@ -273,10 +280,10 @@ fn lighten_byte(sc: u32, dc: u32, sa: u32, da: u32) -> u32 {
     let ds = dc * sa;
     if sd > ds {
         // srcover
-        return sc + dc - div255(ds);
+        sc + dc - div255(ds)
     } else {
         // dstover
-        return dc + sc - div255(sd);
+        dc + sc - div255(sd)
     }
 }
 
@@ -286,25 +293,26 @@ impl Blend for Lighten {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src);
         let da = get_packed_a32(dst);
-        pack_argb32(srcover_byte(sa, da),
-                    lighten_byte(get_packed_r32(src), get_packed_r32(dst), sa, da),
-                    lighten_byte(get_packed_g32(src), get_packed_g32(dst), sa, da),
-                    lighten_byte(get_packed_b32(src), get_packed_b32(dst), sa, da))
+        pack_argb32(
+            srcover_byte(sa, da),
+            lighten_byte(get_packed_r32(src), get_packed_r32(dst), sa, da),
+            lighten_byte(get_packed_g32(src), get_packed_g32(dst), sa, da),
+            lighten_byte(get_packed_b32(src), get_packed_b32(dst), sa, da)
+        )
     }
 }
 
 fn colordodge_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
     let mut diff = sa - sc;
-    let rc;
-    if 0 == dc {
+    let rc = if 0 == dc {
         return muldiv255(sc as u32, (255 - da) as u32);
     } else if 0 == diff {
-        rc = sa * da + sc * (255 - da) + dc * (255 - sa);
+        sa * da + sc * (255 - da) + dc * (255 - sa)
     } else {
         diff = (dc * sa) / diff;
-        rc = sa * (if da < diff { da } else { diff }) + sc * (255 - da) + dc * (255 - sa);
-    }
-    return clamp_div255round(rc);
+        sa * (if da < diff { da } else { diff }) + sc * (255 - da) + dc * (255 - sa)
+    };
+    clamp_div255round(rc)
 }
 
 pub struct ColorDodge;
@@ -313,25 +321,26 @@ impl Blend for ColorDodge {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src) as i32;
         let da = get_packed_a32(dst) as i32;
-        pack_argb32(srcover_byte(sa as u32, da as u32),
-                    colordodge_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
-                    colordodge_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
-                    colordodge_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            colordodge_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+            colordodge_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+            colordodge_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da)
+        )
     }
 }
 
 fn colorburn_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
-    let rc;
-    if dc == da {
-        rc = sa * da + sc * (255 - da) + dc * (255 - sa);
+    let rc = if dc == da {
+        sa * da + sc * (255 - da) + dc * (255 - sa)
     } else if 0 == sc {
         return muldiv255(dc as u32, (255 - sa) as u32);
     } else {
         let tmp = (da - dc) * sa / sc;
-        rc = sa * (da - (if da < tmp { da } else { tmp }))
-            + sc * (255 - da) + dc * (255 - sa);
-    }
-    return clamp_div255round(rc);
+        sa * (da - (if da < tmp { da } else { tmp }))
+           + sc * (255 - da) + dc * (255 - sa)
+    };
+    clamp_div255round(rc)
 }
 
 pub struct ColorBurn;
@@ -340,21 +349,22 @@ impl Blend for ColorBurn {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src) as i32;
         let da = get_packed_a32(dst) as i32;
-        pack_argb32(srcover_byte(sa as u32, da as u32),
-                    colorburn_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
-                    colorburn_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
-                    colorburn_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            colorburn_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+            colorburn_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+            colorburn_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da)
+        )
     }
 }
 
 fn hardlight_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
-    let rc;
-    if 2 * sc <= sa {
-        rc = 2 * sc * dc;
+    let rc = if 2 * sc <= sa {
+        2 * sc * dc
     } else {
-        rc = sa * da - 2 * (da - dc) * (sa - sc);
-    }
-    return clamp_div255round(rc + sc * (255 - da) + dc * (255 - sa));
+        sa * da - 2 * (da - dc) * (sa - sc)
+    };
+    clamp_div255round(rc + sc * (255 - da) + dc * (255 - sa))
 }
 
 pub struct HardLight;
@@ -363,15 +373,16 @@ impl Blend for HardLight {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src) as i32;
         let da = get_packed_a32(dst) as i32;
-        pack_argb32(srcover_byte(sa as u32, da as u32),
-                    hardlight_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
-                    hardlight_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
-                    hardlight_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            hardlight_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+            hardlight_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+            hardlight_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da)
+        )
     }
 }
 
-/* www.worldserver.com/turk/computergraphics/FixedSqrt.pdf
-*/
+// www.worldserver.com/turk/computergraphics/FixedSqrt.pdf
 fn sqrt_bits(x: i32, count: i32) -> i32 {
     debug_assert!(x >= 0 && count > 0 && count <= 30);
 
@@ -395,29 +406,28 @@ fn sqrt_bits(x: i32, count: i32) -> i32 {
         }
     }
 
-    return root;
+    root
 }
 
 type U8Cpu = u32;
 
 // returns 255 * sqrt(n/255)
 fn sqrt_unit_byte(n: U8Cpu) -> U8Cpu {
-    return sqrt_bits(n as i32, 15 + 4) as u32;
+    sqrt_bits(n as i32, 15 + 4) as u32
 }
 
 fn softlight_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
     let m = if da != 0 { dc * 256 / da } else { 0 };
-    let rc;
-    if 2 * sc <= sa {
-        rc = dc * (sa + ((2 * sc - sa) * (256 - m) >> 8));
+    let rc = if 2 * sc <= sa {
+        dc * (sa + ((2 * sc - sa) * (256 - m) >> 8))
     } else if 4 * dc <= da {
         let tmp = (4 * m * (4 * m + 256) * (m - 256) >> 16) + 7 * m;
-        rc = dc * sa + (da * (2 * sc - sa) * tmp >> 8);
+        dc * sa + (da * (2 * sc - sa) * tmp >> 8)
     } else {
         let tmp = sqrt_unit_byte(m as u32) as i32 - m;
-        rc = dc * sa + (da * (2 * sc - sa) * tmp >> 8);
-    }
-    return clamp_div255round(rc + sc * (255 - da) + dc * (255 - sa));
+        dc * sa + (da * (2 * sc - sa) * tmp >> 8)
+    };
+    clamp_div255round(rc + sc * (255 - da) + dc * (255 - sa))
 }
 
 pub struct SoftLight;
@@ -426,10 +436,12 @@ impl Blend for SoftLight {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src) as i32;
         let da = get_packed_a32(dst) as i32;
-        pack_argb32(srcover_byte(sa as u32, da as u32),
-                    softlight_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
-                    softlight_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
-                    softlight_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            softlight_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+            softlight_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+            softlight_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da)
+        )
     }
 }
 
@@ -446,7 +458,7 @@ fn clamp_signed_byte(n: i32) -> u32 {
 
 fn difference_byte(sc: i32, dc: i32, sa: i32, da: i32) -> u32 {
     let tmp = (sc * da).min(dc * sa);
-    return clamp_signed_byte(sc + dc - 2 * div255(tmp as u32) as i32);
+    clamp_signed_byte(sc + dc - 2 * div255(tmp as u32) as i32)
 }
 
 pub struct Difference;
@@ -455,10 +467,12 @@ impl Blend for Difference {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src) as i32;
         let da = get_packed_a32(dst) as i32;
-        pack_argb32(srcover_byte(sa as u32, da as u32),
-                    difference_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
-                    difference_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
-                    difference_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            difference_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+            difference_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+            difference_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da)
+        )
     }
 }
 
@@ -468,7 +482,7 @@ fn exclusion_byte(sc: i32, dc: i32, _sa: i32, _da: i32) -> u32 {
 
     // The above equation can be simplified as follows
     let r = 255 * (sc + dc) - 2 * sc * dc;
-    return clamp_div255round(r);
+    clamp_div255round(r)
 }
 
 pub struct Exclusion;
@@ -477,10 +491,12 @@ impl Blend for Exclusion {
     fn blend(src: u32, dst: u32) -> u32 {
         let sa = get_packed_a32(src) as i32;
         let da = get_packed_a32(dst) as i32;
-        pack_argb32(srcover_byte(sa as u32, da as u32),
-                    exclusion_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
-                    exclusion_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
-                    exclusion_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da))
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            exclusion_byte(get_packed_r32(src) as i32, get_packed_r32(dst) as i32, sa, da),
+            exclusion_byte(get_packed_g32(src) as i32, get_packed_g32(dst) as i32, sa, da),
+            exclusion_byte(get_packed_b32(src) as i32, get_packed_b32(dst) as i32, sa, da)
+        )
     }
 }
 
@@ -489,14 +505,12 @@ impl Blend for Exclusion {
 // SkComputeLuminance is similar to this formula but it uses the new definition from Rec. 709
 // while PDF and CG uses the one from Rec. Rec. 601
 // See http://www.glennchan.info/articles/technical/hd-versus-sd-color-space/hd-versus-sd-color-space.htm
-fn lum(r: i32, g: i32, b: i32) -> i32
-{
+fn lum(r: i32, g: i32, b: i32) -> i32 {
     div255((r * 77 + g * 150 + b * 28) as u32) as i32
 }
 
 fn mul_div(numer1: i32, numer2: i32, denom: i32) -> i32 {
-    let tmp = (numer1 as i64 * numer2 as i64) / denom as i64;
-    return tmp as i32;
+    ((numer1 as i64 * numer2 as i64) / denom as i64) as i32
 }
 
 fn minimum(a: i32, b: i32, c: i32) -> i32 {
@@ -604,11 +618,12 @@ impl Blend for Hue {
             Sb = 0;
         }
 
-        let a = srcover_byte(sa as u32, da as u32);
-        let r = blendfunc_nonsep_byte(sr, dr, sa, da, Sr);
-        let g = blendfunc_nonsep_byte(sg, dg, sa, da, Sg);
-        let b = blendfunc_nonsep_byte(sb, db, sa, da, Sb);
-        return pack_argb32(a, r, g, b);
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            blendfunc_nonsep_byte(sr, dr, sa, da, Sr),
+            blendfunc_nonsep_byte(sg, dg, sa, da, Sg),
+            blendfunc_nonsep_byte(sb, db, sa, da, Sb)
+        )
     }
 }
 
@@ -641,11 +656,12 @@ impl Blend for Saturation {
             Db = 0;
         }
 
-        let a = srcover_byte(sa as u32, da as u32);
-        let r = blendfunc_nonsep_byte(sr, dr, sa, da, Dr);
-        let g = blendfunc_nonsep_byte(sg, dg, sa, da, Dg);
-        let b = blendfunc_nonsep_byte(sb, db, sa, da, Db);
-        return pack_argb32(a, r, g, b);
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            blendfunc_nonsep_byte(sr, dr, sa, da, Dr),
+            blendfunc_nonsep_byte(sg, dg, sa, da, Dg),
+            blendfunc_nonsep_byte(sb, db, sa, da, Db)
+        )
     }
 }
 
@@ -677,11 +693,12 @@ impl Blend for Color {
             Sb = 0;
         }
 
-        let a = srcover_byte(sa as u32, da as u32);
-        let r = blendfunc_nonsep_byte(sr, dr, sa, da, Sr);
-        let g = blendfunc_nonsep_byte(sg, dg, sa, da, Sg);
-        let b = blendfunc_nonsep_byte(sb, db, sa, da, Sb);
-        return pack_argb32(a, r, g, b);
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            blendfunc_nonsep_byte(sr, dr, sa, da, Sr),
+            blendfunc_nonsep_byte(sg, dg, sa, da, Sg),
+            blendfunc_nonsep_byte(sb, db, sa, da, Sb)
+        )
     }
 }
 
@@ -715,11 +732,11 @@ impl Blend for Luminosity {
             Db = 0;
         }
 
-        let a = srcover_byte(sa as u32, da as u32);
-        let r = blendfunc_nonsep_byte(sr, dr, sa, da, Dr);
-        let g = blendfunc_nonsep_byte(sg, dg, sa, da, Dg);
-        let b = blendfunc_nonsep_byte(sb, db, sa, da, Db);
-        return pack_argb32(a, r, g, b);
+        pack_argb32(
+            srcover_byte(sa as u32, da as u32),
+            blendfunc_nonsep_byte(sr, dr, sa, da, Dr),
+            blendfunc_nonsep_byte(sg, dg, sa, da, Dg),
+            blendfunc_nonsep_byte(sb, db, sa, da, Db)
+        )
     }
 }
-
