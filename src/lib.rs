@@ -326,7 +326,7 @@ impl Gradient {
             // XXX we could actually avoid doing any multiplications inside
             // this loop by accumulating (next_color - last_color)*inverse
             // that's what Skia does
-            while i <= next_pos {
+            while i <= next_pos && i < 255 {
                 // stops need to be represented in unpremultipled form otherwise we lose information
                 // that we need when lerping between colors
                 lut[i as usize] = premultiply(lerp(last_color, next_color, (t + FIXED_HALF) >> FIXED_SHIFT));
@@ -405,6 +405,24 @@ fn test_gradient_lut() {
     let mut lut = [0; 256];
     g.build_lut(&mut lut, 256);
     assert_eq!(lut[255], black.0);
+}
+
+#[cfg(test)]
+#[test]
+fn test_gradient_pos_range() {
+    let white = Color(0xffffffff);
+    let black = Color(0x00000000);
+
+    let g = Gradient {
+        stops: vec![
+            GradientStop { position: -1.0, color: white },
+            GradientStop { position: 1.2, color: black },
+        ]
+    };
+
+    let mut lut = [0; 256];
+    g.build_lut(&mut lut, 256);
+    // Must not panic.
 }
 
 pub trait PixelFetch {
