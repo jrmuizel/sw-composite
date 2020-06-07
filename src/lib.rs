@@ -634,12 +634,13 @@ pub fn fetch_nearest_alpha<Fetch: PixelFetch>(image: &Image, x: Fixed, y: Fixed,
     alpha_mul(Fetch::get_pixel(image, fixed_to_int(x + FIXED_HALF), fixed_to_int(y + FIXED_HALF)), alpha)
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct PointFixedPoint {
     pub x: Fixed,
     pub y: Fixed,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MatrixFixedPoint {
     pub xx: Fixed,
     pub xy: Fixed,
@@ -653,12 +654,29 @@ impl MatrixFixedPoint {
     pub fn transform(&self, x: u16, y: u16) -> PointFixedPoint {
         let x = x as i32;
         let y = y as i32;
-        // when taking integer parameters we can use a regular mulitply instead of a fixed one
+        // When taking integer parameters we can use a regular multiply instead of a fixed one.
+        //
+        // We're also using wrapping to prevent overflow panics in debug.
+        // Therefore usage of large numbers is an undefined behavior.
         PointFixedPoint {
-            x: x * self.xx + self.xy * y + self.x0,
-            y: y * self.yy + self.yx * x + self.y0,
+            x: x.wrapping_mul(self.xx).wrapping_add(self.xy.wrapping_mul(y)).wrapping_add(self.x0),
+            y: y.wrapping_mul(self.yy).wrapping_add(self.yx.wrapping_mul(x)).wrapping_add(self.y0),
         }
     }
+}
+
+#[cfg(test)]
+#[test]
+fn test_large_matrix() {
+    let matrix = MatrixFixedPoint {
+        xx: std::i32::MAX, xy: std::i32::MAX, yx: std::i32::MAX,
+        yy: std::i32::MAX, x0: std::i32::MAX, y0: std::i32::MAX,
+    };
+    // `transform()` must not panic
+    assert_eq!(
+        matrix.transform(std::u16::MAX, std::u16::MAX),
+        PointFixedPoint { x: 2147352577, y: 2147352577 }
+    );
 }
 
 fn premultiply(c: u32) -> u32 {
