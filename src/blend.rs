@@ -194,6 +194,7 @@ impl Blend for Multiply {
     }
 }
 
+#[inline]
 fn srcover_byte(a: u32, b: u32) -> u32 {
     a + b - muldiv255(a, b)
 }
@@ -201,6 +202,7 @@ fn srcover_byte(a: u32, b: u32) -> u32 {
 pub struct Screen;
 
 impl Blend for Screen {
+    #[inline]
     fn blend(src: u32, dst: u32) -> u32 {
         pack_argb32(srcover_byte(get_packed_a32(src), get_packed_a32(dst)),
                     srcover_byte(get_packed_r32(src), get_packed_r32(dst)),

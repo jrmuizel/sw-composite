@@ -648,6 +648,7 @@ fn premultiply(c: u32) -> u32 {
     pack_argb32(a, r, g, b)
 }
 
+#[inline]
 fn pack_argb32(a: u32, r: u32, g: u32, b: u32) -> u32 {
     debug_assert!(r <= a);
     debug_assert!(g <= a);
@@ -657,9 +658,13 @@ fn pack_argb32(a: u32, r: u32, g: u32, b: u32) -> u32 {
         (g << G32_SHIFT) | (b << B32_SHIFT);
 }
 
+#[inline]
 fn get_packed_a32(packed: u32) -> u32 { ((packed) << (24 - A32_SHIFT)) >> 24 }
+#[inline]
 fn get_packed_r32(packed: u32) -> u32 { ((packed) << (24 - R32_SHIFT)) >> 24 }
+#[inline]
 fn get_packed_g32(packed: u32) -> u32 { ((packed) << (24 - G32_SHIFT)) >> 24 }
+#[inline]
 fn get_packed_b32(packed: u32) -> u32 { ((packed) << (24 - B32_SHIFT)) >> 24 }
 
 #[inline]
@@ -699,6 +704,7 @@ fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
 }
 
 /** Calculates floor(a*b/255 + 0.5) */
+#[inline]
 pub fn muldiv255(a: u32, b: u32) -> u32 {
     /* The deriviation for this formula can be
      * found in "Three Wrongs Make a Right" by Jim Blinn.*/
