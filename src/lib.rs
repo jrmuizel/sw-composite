@@ -718,7 +718,8 @@ fn packed_alpha(x: u32) -> u32 {
 }
 
 // this is an approximation of true 'over' that does a division by 256 instead
-// of 255. It is the same style of blending that Skia does.
+// of 255. It is the same style of blending that Skia does. It corresponds 
+// to Skia's SKPMSrcOver
 pub fn over(src: u32, dst: u32) -> u32 {
     let a = packed_alpha(src);
     let a = 256 - a;
@@ -737,8 +738,7 @@ pub fn alpha_to_alpha256(alpha: u32) -> u32 {
 // for [0,255] value and [0,256] alpha256.
 #[inline]
 fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
-    let prod = 0xFFFF - value * alpha256;
-    (prod + (prod >> 8)) >> 8
+    alpha_to_alpha256(255 - alpha_mul_fast(value, alpha256))
 }
 
 // Calculates (value * alpha256) / 255 in range [0,256],
@@ -746,6 +746,11 @@ fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
 fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
     let prod = value * alpha256;
     (prod + (prod >> 8)) >> 8
+}
+
+#[inline]
+fn alpha_mul_fast(x: u32, a: Alpha256) -> u32 {
+    (x * a) >> 8
 }
 
 // Calculates floor(a*b/255 + 0.5)
@@ -795,6 +800,12 @@ pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
 
     // we sum src and dst before reducing to 8 bit to avoid accumulating rounding errors
     (((src_rb + dst_rb) >> 8) & mask) | ((src_ag + dst_ag) & !mask)
+}
+
+pub fn over_in_legacy_lerp(src: u32, dst: u32, alpha: u32) -> u32 {
+    let src_scale = alpha_to_alpha256(alpha);
+    let dst_scale = alpha_to_alpha256(255 - alpha_mul(packed_alpha(src), src_scale));
+    alpha_mul(src, src_scale) + alpha_mul(dst, dst_scale)
 }
 
 #[cfg(target_arch = "x86")]
@@ -847,7 +858,6 @@ fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
         _mm_mullo_epi16,
         _mm_add_epi16,
         _mm_sub_epi32,
-        _mm_add_epi32,
         _mm_srli_epi16,
         _mm_shufflelo_epi16,
         _mm_shufflehi_epi16,
@@ -870,9 +880,9 @@ fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
         let mut dst_scale = _mm_srli_epi32(src, 24);
         // High words in dst_scale are 0, so it's safe to multiply with 16-bit src_scale.
         dst_scale = _mm_mullo_epi16(dst_scale, src_scale);
-        dst_scale = _mm_sub_epi32(_mm_set1_epi32(0xFFFF), dst_scale);
-        dst_scale = _mm_add_epi32(dst_scale, _mm_srli_epi32(dst_scale, 8));
         dst_scale = _mm_srli_epi32(dst_scale, 8);
+        dst_scale = _mm_sub_epi32(_mm_set1_epi32(0x100), dst_scale);
+
         // Duplicate scales into 2x16-bit pattern per pixel.
         dst_scale = _mm_shufflelo_epi16(dst_scale, _MM_SHUFFLE(2, 2, 0, 0));
         dst_scale = _mm_shufflehi_epi16(dst_scale, _MM_SHUFFLE(2, 2, 0, 0));
@@ -929,6 +939,30 @@ fn test_over_in() {
     over_in_row(&[0xff00ff00, 0, 0, 0], &mut dst, 0xff);
     assert_eq!(dst[0], 0xff00ff00);
     assert_eq!(over_in_in(0xff00ff00, 0xffff0000, 0xff, 0xff), 0xff00ff00);
+
+
+    // ensure that blending `color` on top of itself
+    // doesn't change the color
+    for c in 0..=255 {
+        for a in 0..=255 {
+            let color = 0xff000000 | c;
+            assert_eq!(over_in(color, color, a), color);
+            let mut dst = [color, 0, 0, 0];
+            over_in_row(&[color, 0, 0, 0], &mut dst, a);
+            assert_eq!(dst[0], color);
+        }
+    }
+
+    // test that blending by 0 preserves the destination
+    assert_eq!(over_in(0xff000000, 0xff0000ff, 0x0), 0xff0000ff);
+    assert_eq!(over_in_legacy_lerp(0xff000000, 0xff0000ff, 0x0), 0xff0000ff);
+
+    // tests that blending is broken with the legacy version
+    assert_eq!(over_in_legacy_lerp(0xff2e3338, 0xff2e3338, 127), 0xff2e3238);
+
+    let mut dst = [0xff0000ff, 0, 0, 0];
+    over_in_row(&[0xff000000, 0, 0, 0], &mut dst, 0);
+    assert_eq!(dst[0], 0xff0000ff);
 }
 
 pub fn alpha_lerp(src: u32, dst: u32, mask: u32, clip: u32) -> u32 {
