@@ -720,6 +720,7 @@ fn packed_alpha(x: u32) -> u32 {
 // this is an approximation of true 'over' that does a division by 256 instead
 // of 255. It is the same style of blending that Skia does. It corresponds 
 // to Skia's SKPMSrcOver
+#[inline]
 pub fn over(src: u32, dst: u32) -> u32 {
     let a = packed_alpha(src);
     let a = 256 - a;
