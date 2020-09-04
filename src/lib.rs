@@ -782,9 +782,12 @@ pub fn alpha_mul(x: u32, a: Alpha256) -> u32 {
 
 // This approximates the division by 255 using a division by 256.
 // It matches the behaviour of SkBlendARGB32 from Skia in 2017.
-// The behaviour of this function was changed in 2016 by Lee Salzman
+// The behaviour of SkBlendARGB32 was changed in 2016 by Lee Salzman
 // in Skia:40254c2c2dc28a34f96294d5a1ad94a99b0be8a6 to keep more of the
-// intermediate precision
+// intermediate precision. This implementation uses the alpha setup code
+// from the original implementation and additional precision from the reimplementation.
+// this combined approach avoids getting incorrect results when `alpha` is 0
+// and is slightly faster.
 #[inline]
 pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     let src_alpha = alpha_to_alpha256(alpha);
