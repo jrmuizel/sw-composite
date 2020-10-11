@@ -739,7 +739,8 @@ pub fn alpha_to_alpha256(alpha: u32) -> u32 {
 // for [0,255] value and [0,256] alpha256.
 #[inline]
 fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
-    alpha_to_alpha256(255 - alpha_mul_fast(value, alpha256))
+    let prod = value * alpha256;
+    256 - ((prod + (prod >> 8)) >> 8)
 }
 
 // Calculates (value * alpha256) / 255 in range [0,256],
@@ -747,11 +748,6 @@ fn alpha_mul_inv256(value: u32, alpha256: u32) -> u32 {
 fn alpha_mul_256(value: u32, alpha256: u32) -> u32 {
     let prod = value * alpha256;
     (prod + (prod >> 8)) >> 8
-}
-
-#[inline]
-fn alpha_mul_fast(x: u32, a: Alpha256) -> u32 {
-    (x * a) >> 8
 }
 
 // Calculates floor(a*b/255 + 0.5)
@@ -785,10 +781,12 @@ pub fn alpha_mul(x: u32, a: Alpha256) -> u32 {
 // It matches the behaviour of SkBlendARGB32 from Skia in 2017.
 // The behaviour of SkBlendARGB32 was changed in 2016 by Lee Salzman
 // in Skia:40254c2c2dc28a34f96294d5a1ad94a99b0be8a6 to keep more of the
-// intermediate precision. This implementation uses the alpha setup code
+// intermediate precision. This was changed to use the alpha setup code
 // from the original implementation and additional precision from the reimplementation.
 // this combined approach avoids getting incorrect results when `alpha` is 0
-// and is slightly faster.
+// and is slightly faster. However, it suffered from overflow and so
+// was switched back to a modified version the previous one that adds 1
+// to result.
 #[inline]
 pub fn over_in(src: u32, dst: u32, alpha: u32) -> u32 {
     let src_alpha = alpha_to_alpha256(alpha);
@@ -862,6 +860,7 @@ fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
         _mm_mullo_epi16,
         _mm_add_epi16,
         _mm_sub_epi32,
+        _mm_add_epi32,
         _mm_srli_epi16,
         _mm_shufflelo_epi16,
         _mm_shufflehi_epi16,
@@ -884,6 +883,7 @@ fn over_in_sse2(src: __m128i, dst: __m128i, alpha: u32) -> __m128i {
         let mut dst_scale = _mm_srli_epi32(src, 24);
         // High words in dst_scale are 0, so it's safe to multiply with 16-bit src_scale.
         dst_scale = _mm_mullo_epi16(dst_scale, src_scale);
+        dst_scale = _mm_add_epi32(dst_scale, _mm_srli_epi32(dst_scale, 8));
         dst_scale = _mm_srli_epi32(dst_scale, 8);
         dst_scale = _mm_sub_epi32(_mm_set1_epi32(0x100), dst_scale);
 
@@ -954,6 +954,16 @@ fn test_over_in() {
             let mut dst = [color, 0, 0, 0];
             over_in_row(&[color, 0, 0, 0], &mut dst, a);
             assert_eq!(dst[0], color);
+        }
+    }
+
+    // make sure we don't overflow
+    for s in 0..=255 {
+        for a in 0..=255 {
+            let result = over_in(s << 24, 0xff000000, a);
+            let mut dst = [0xff000000, 0, 0, 0];
+            over_in_row(&[s << 24, 0, 0, 0], &mut dst, a);
+            assert_eq!(dst[0], result);
         }
     }
 
