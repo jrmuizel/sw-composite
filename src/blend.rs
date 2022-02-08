@@ -384,7 +384,7 @@ impl Blend for HardLight {
     }
 }
 
-// www.worldserver.com/turk/computergraphics/FixedSqrt.pdf
+// https://web.archive.org/web/20060317035105/www.worldserver.com/turk/computergraphics/FixedSqrt.pdf
 fn sqrt_bits(x: i32, count: i32) -> i32 {
     debug_assert!(x >= 0 && count > 0 && count <= 30);
 

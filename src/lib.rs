@@ -731,6 +731,47 @@ pub fn over(src: u32, dst: u32) -> u32 {
 }
 
 #[inline]
+// this calculates over() with a division by 255 and
+// handles saturation to 255 that is needed for handling
+// superluminescent pixels.
+pub fn over_exact(src: u32, dst: u32) -> u32 {
+    let a = packed_alpha(src);
+    let a = 255 - a;
+    let mask = 0xff00ff;
+    let t = (dst & mask) * a + 0x800080;
+    let mut rb = (t + ((t >> 8) & mask)) >> 8;
+    rb &= mask;
+
+    rb += src & mask;
+
+    // saturate
+    rb |= 0x1000100 - ((rb >> 8) & mask);
+    rb &= mask;
+
+    let t = ((dst >> 8) & mask) * a + 0x800080;
+    let mut ag = (t + ((t >> 8) & mask)) >> 8;
+    ag &= mask;
+    ag += (src >> 8) & mask;
+
+    // saturate
+    ag |= 0x1000100 - ((ag >> 8) & mask);
+    ag &= mask;
+
+    (ag << 8) + rb
+}
+
+#[cfg(test)]
+#[test]
+fn test_over_exact() {
+    assert_eq!(over_exact(0xff00ff00, 0xffff0000), 0xff00ff00);
+    assert_eq!(over_exact(0x80008000, 0xffff0000), 0xff7f8000);
+
+    // superluminance - over() gives the worong result
+    // over_exact() saturates.
+    assert_eq!(over(0x80ffff00, 0xffff0000), 0xff7eff00);
+    assert_eq!(over_exact(0x80ffff00, 0xffff0000), 0xffffff00);
+}
+
 pub fn alpha_to_alpha256(alpha: u32) -> u32 {
     alpha + 1
 }
