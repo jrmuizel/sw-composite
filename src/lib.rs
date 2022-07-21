@@ -211,6 +211,61 @@ impl TwoCircleRadialGradientSource {
     }
 }
 
+pub struct SweepGradientSource {
+    matrix: MatrixFixedPoint,
+    t_bias: f32,
+    t_scale: f32,
+    lut: [u32; 256],
+}
+
+fn if_then_else<T>(cond: bool, x: T, y: T) -> T {
+    if cond { x } else { y }
+}
+
+impl SweepGradientSource {
+    // This implementation is taken from Skia
+    pub fn eval(&self, x: u16, y: u16, spread: Spread) -> u32 {
+        let p = self.matrix.transform(x, y);
+        // XXX: this is slow and bad
+        // the derivation is from pixman radial_get_scanline_narrow
+        // " Mathematically the gradient can be defined as the family of circles
+        //
+        //    ((1-t)·c₁ + t·(c₂), (1-t)·r₁ + t·r₂)
+        //
+        // excluding those circles whose radius would be < 0."
+        // i.e. anywhere where r < 0 we return 0 (transparent black).
+        let px = p.x as f32 / 65536.;
+        let py = p.y as f32 / 65536.;
+
+        let xabs = px.abs();
+        let yabs = py.abs();
+
+        let slope = xabs.min(yabs)/xabs.max(yabs);
+        let s = slope * slope;
+
+        // Use a 7th degree polynomial to approximate atan.
+        // This was generated using sollya.gforge.inria.fr.
+        // A float optimized polynomial was generated using the following command.
+        // P1 = fpminimax((1/(2*Pi))*atan(x),[|1,3,5,7|],[|24...|],[2^(-40),1],relative);
+        let mut phi = slope
+                * (0.15912117063999176025390625     + s
+                * (-5.185396969318389892578125e-2   + s
+                * (2.476101927459239959716796875e-2 + s
+                * (-7.0547382347285747528076171875e-3))));
+
+        phi = if_then_else(xabs < yabs, 1.0/4.0 - phi, phi);
+        phi = if_then_else(px < 0.0   , 1.0/2.0 - phi, phi);
+        phi = if_then_else(py < 0.0   , 1.0 - phi     , phi);
+        phi = if_then_else(phi != phi , 0.              , phi);  // Check for NaN.
+        let r = phi;
+
+        let t = r * self.t_scale - self.t_bias;
+
+        let result = self.lut[apply_spread((t * 255.) as i32, spread) as usize];
+        result
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Gradient {
     pub stops: Vec<GradientStop>
@@ -286,6 +341,24 @@ impl Gradient {
     ) -> Box<TwoCircleRadialGradientSource> {
         let mut source = Box::new(TwoCircleRadialGradientSource {
             c1x, c1y, r1, c2x, c2y, r2, matrix: matrix.clone(), lut: [0; 256]
+        });
+        self.build_lut(&mut source.lut, alpha_to_alpha256(alpha));
+        source
+    }
+
+    pub fn make_sweep_source(
+        &self,
+        start_angle: f32,
+        end_angle: f32,
+        matrix: &MatrixFixedPoint,
+        alpha: u32,
+    ) -> Box<SweepGradientSource> {
+        let t0 = start_angle / 360.;
+        let t1 = end_angle / 360.;
+        let t_bias = -t0;
+        let t_scale = 1. / (t1 - t0);
+        let mut source = Box::new(SweepGradientSource {
+            t_bias, t_scale, matrix: matrix.clone(), lut: [0; 256]
         });
         self.build_lut(&mut source.lut, alpha_to_alpha256(alpha));
         source
