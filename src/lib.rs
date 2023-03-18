@@ -800,7 +800,16 @@ pub fn over(src: u32, dst: u32) -> u32 {
     let mask = 0xff00ff;
     let rb = ((dst & 0xff00ff) * a) >> 8;
     let ag = ((dst >> 8) & 0xff00ff) * a;
-    src + (rb & mask) | (ag & !mask)
+    src + ((rb & mask) | (ag & !mask))
+}
+
+#[cfg(test)]
+#[test]
+fn test_over() {
+    let src = 0x81004000;
+    let dst = 0xffffffff;
+    assert_eq!(over(src, dst), over_exact(src, dst));
+    assert_eq!(over(src, dst), 0xff7ebe7e);
 }
 
 #[inline]
@@ -841,7 +850,7 @@ fn test_over_exact() {
 
     // superluminance - over() gives the worong result
     // over_exact() saturates.
-    assert_eq!(over(0x80ffff00, 0xffff0000), 0xff7eff00);
+    assert_eq!(over(0x80ffff00, 0xffff0000), 0x7eff00);
     assert_eq!(over_exact(0x80ffff00, 0xffff0000), 0xffffff00);
 }
 
