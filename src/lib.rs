@@ -365,6 +365,10 @@ impl Gradient {
     }
 
     fn build_lut(&self, lut: &mut [u32; 256], alpha: Alpha256) {
+        if self.stops.is_empty() {
+            return;
+        }
+
         let mut stop_idx = 0;
         let mut stop = &self.stops[stop_idx];
 
