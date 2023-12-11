@@ -1,3 +1,20 @@
+#![no_std]
+
+extern crate alloc;
+
+use alloc::{
+    boxed::Box,
+    vec, vec::Vec
+};
+
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(not(feature = "std"))]
+extern crate num_traits;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
+
 pub mod blend;
 
 const BILINEAR_INTERPOLATION_BITS: u32 = 4;
@@ -256,7 +273,7 @@ impl SweepGradientSource {
         phi = if_then_else(xabs < yabs, 1.0/4.0 - phi, phi);
         phi = if_then_else(px < 0.0   , 1.0/2.0 - phi, phi);
         phi = if_then_else(py < 0.0   , 1.0 - phi     , phi);
-        phi = if_then_else(phi != phi , 0.              , phi);  // Check for NaN.
+        phi = if_then_else(phi.is_nan(), 0.              , phi);  // Check for NaN.
         let r = phi;
 
         let t = r * self.t_scale - self.t_bias;
@@ -742,12 +759,12 @@ impl MatrixFixedPoint {
 #[test]
 fn test_large_matrix() {
     let matrix = MatrixFixedPoint {
-        xx: std::i32::MAX, xy: std::i32::MAX, yx: std::i32::MAX,
-        yy: std::i32::MAX, x0: std::i32::MAX, y0: std::i32::MAX,
+        xx: core::i32::MAX, xy: core::i32::MAX, yx: core::i32::MAX,
+        yy: core::i32::MAX, x0: core::i32::MAX, y0: core::i32::MAX,
     };
     // `transform()` must not panic
     assert_eq!(
-        matrix.transform(std::u16::MAX, std::u16::MAX),
+        matrix.transform(core::u16::MAX, core::u16::MAX),
         PointFixedPoint { x: 2147352577, y: 2147352577 }
     );
 }
@@ -934,9 +951,9 @@ pub fn over_in_legacy_lerp(src: u32, dst: u32, alpha: u32) -> u32 {
 }
 
 #[cfg(target_arch = "x86")]
-use std::arch::x86::{self as x86_intrinsics, __m128i};
+use core::arch::x86::{self as x86_intrinsics, __m128i};
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::{self as x86_intrinsics, __m128i};
+use core::arch::x86_64::{self as x86_intrinsics, __m128i};
 
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "sse2")))]
 pub fn over_in_row(src: &[u32], dst: &mut [u32], alpha: u32) {
