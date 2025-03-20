@@ -113,7 +113,7 @@ pub struct TwoCircleRadialGradientSource {
     lut: [u32; 256],
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Spread {
     Pad,
     Reflect,
